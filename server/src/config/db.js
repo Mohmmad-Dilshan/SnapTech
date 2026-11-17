@@ -773,6 +773,87 @@ let mockActivityLogs = [
   },
 ]
 
+let mockBillingMilestones = [
+  {
+    id: 'bm-1',
+    title: 'UI/UX Design & Architecture',
+    amount: 15000,
+    dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+    status: 'PAID',
+    clientProjectId: 'cp-1',
+    deliverables: [{ name: 'Figma Prototype', url: 'https://figma.com' }],
+    paidAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+]
+
+let mockAttachments = [
+  {
+    id: 'att-1',
+    fileName: 'Project-Scope-v1.pdf',
+    fileUrl: 'https://res.cloudinary.com/mock/raw/upload/Project-Scope-v1.pdf',
+    fileType: 'application/pdf',
+    fileSize: 1048576,
+    category: 'CONTRACT',
+    uploadedByRole: 'ADMIN',
+    clientProjectId: 'cp-1',
+    createdAt: new Date(),
+  },
+]
+
+let mockDailyWorkLogs = [
+  {
+    id: 'dwl-1',
+    clientProjectId: 'cp-1',
+    date: new Date(),
+    authorName: 'Mohmmad Dilshan',
+    authorEmail: 'dilsedilshan1@gmail.com',
+    workDone: 'Designed mobile layout and configured React Query caching for product inventory.',
+    featuresAdded: 'Filter by category and price range on product catalogue.',
+    bugsFixed: 'Resolved mobile navbar overlap on small screens.',
+    issuesEncountered: 'Awaiting client approval on SMS gateway templates.',
+    pendingWork: 'Razorpay checkout webhook integration.',
+    nextDayPlan: 'Connect checkout form with Razorpay test keys and verify webhooks.',
+    timeSpentHours: 6.5,
+    notes: 'Development is running smoothly and on track for next milestone.',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+]
+
+let mockProjectIssues = [
+  {
+    id: 'pi-1',
+    clientProjectId: 'cp-1',
+    title: 'SMS Gateway DLT Template Approval Delay',
+    description: 'Client needs to complete DLT registration for transactional OTP SMS delivery.',
+    issueType: 'REQUIREMENT_GAP',
+    severity: 'HIGH',
+    status: 'OPEN',
+    assignedTo: 'Mohmmad Dilshan',
+    resolutionDetails: null,
+    resolvedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+]
+
+let mockProjectFeatures = [
+  {
+    id: 'pf-1',
+    clientProjectId: 'cp-1',
+    name: 'Multi-Currency Selector (INR & USD)',
+    description: 'Allow international buyers to switch currency on product pages.',
+    status: 'IN_PROGRESS',
+    requestedBy: 'Client Owner',
+    assignedTo: 'Mohmmad Dilshan',
+    releasedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+]
+
 // ── Mock Database Client Wrapper ─────────────────────────────
 const mockPrisma = {
   $connect: () => Promise.resolve(),
@@ -822,28 +903,54 @@ const mockPrisma = {
 
   clientProject: {
     findMany: async (args) => {
-      let list = mockClientProjects
+      let list = mockClientProjects.filter((p) => p.deletedAt === null || p.deletedAt === undefined)
       if (args?.where?.status) {
         list = list.filter((p) => p.status === args.where.status)
       }
-      if (args?.include?.tasks) {
-        list = list.map((p) => ({
-          ...p,
-          tasks: mockWorkTasks.filter((t) => t.clientProjectId === p.id),
-        }))
+      if (args?.where?.clientId) {
+        list = list.filter((p) => p.clientId === args.where.clientId)
       }
-      return applyPagination(list, args)
+      return list.map((p) => ({
+        ...p,
+        tasks: mockWorkTasks.filter((t) => t.clientProjectId === p.id),
+        dailyLogs: mockDailyWorkLogs.filter((d) => d.clientProjectId === p.id),
+        issues: mockProjectIssues.filter((i) => i.clientProjectId === p.id),
+        features: mockProjectFeatures.filter((f) => f.clientProjectId === p.id),
+        attachments: mockAttachments.filter((a) => a.clientProjectId === p.id),
+        billingMilestones: mockBillingMilestones.filter((b) => b.clientProjectId === p.id),
+        client: p.clientId ? { id: p.clientId, name: p.clientName, email: 'client@example.com' } : null,
+      }))
     },
     findUnique: async (args) => {
       const p = mockClientProjects.find((p) => p.id === args.where.id)
       if (!p) return null
-      if (args?.include?.tasks) {
-        return {
-          ...p,
-          tasks: mockWorkTasks.filter((t) => t.clientProjectId === p.id),
-        }
+      return {
+        ...p,
+        tasks: mockWorkTasks.filter((t) => t.clientProjectId === p.id),
+        dailyLogs: mockDailyWorkLogs.filter((d) => d.clientProjectId === p.id),
+        issues: mockProjectIssues.filter((i) => i.clientProjectId === p.id),
+        features: mockProjectFeatures.filter((f) => f.clientProjectId === p.id),
+        attachments: mockAttachments.filter((a) => a.clientProjectId === p.id),
+        billingMilestones: mockBillingMilestones.filter((b) => b.clientProjectId === p.id),
+        client: p.clientId ? { id: p.clientId, name: p.clientName, email: 'client@example.com' } : null,
       }
-      return p
+    },
+    findFirst: async (args) => {
+      let found = mockClientProjects.find((p) => {
+        if (args?.where?.id && p.id !== args.where.id) return false
+        if (args?.where?.clientId && p.clientId !== args.where.clientId) return false
+        return true
+      })
+      if (!found) return null
+      return {
+        ...found,
+        tasks: mockWorkTasks.filter((t) => t.clientProjectId === found.id),
+        dailyLogs: mockDailyWorkLogs.filter((d) => d.clientProjectId === found.id),
+        issues: mockProjectIssues.filter((i) => i.clientProjectId === found.id),
+        features: mockProjectFeatures.filter((f) => f.clientProjectId === found.id),
+        attachments: mockAttachments.filter((a) => a.clientProjectId === found.id),
+        billingMilestones: mockBillingMilestones.filter((b) => b.clientProjectId === found.id),
+      }
     },
     count: async (args) => mockClientProjects.length,
     create: async (args) => {
@@ -853,13 +960,17 @@ const mockPrisma = {
         priority: 'MEDIUM',
         progress: 0,
         tags: [],
+        projectType: 'Website Development',
+        health: 'ON_TRACK',
         ...args.data,
         startDate: args.data.startDate ? new Date(args.data.startDate) : new Date(),
         deadline: args.data.deadline ? new Date(args.data.deadline) : new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
+        deletedAt: null,
       }
       mockClientProjects.push(item)
+      saveMockDb()
       return item
     },
     update: async (args) => {
@@ -877,6 +988,7 @@ const mockPrisma = {
           updatedAt: new Date(),
         }
         mockClientProjects[idx] = updated
+        saveMockDb()
         return updated
       }
       throw new Error('ClientProject not found')
@@ -887,9 +999,240 @@ const mockPrisma = {
         const deleted = mockClientProjects[idx]
         mockClientProjects = mockClientProjects.filter((p) => p.id !== args.where.id)
         mockWorkTasks = mockWorkTasks.filter((t) => t.clientProjectId !== args.where.id)
+        saveMockDb()
         return deleted
       }
       throw new Error('ClientProject not found')
+    },
+  },
+
+  dailyWorkLog: {
+    findMany: async (args) => {
+      let list = [...mockDailyWorkLogs]
+      if (args?.where?.clientProjectId) {
+        list = list.filter((d) => d.clientProjectId === args.where.clientProjectId)
+      }
+      if (args?.where?.date?.gte) {
+        list = list.filter((d) => new Date(d.date) >= new Date(args.where.date.gte))
+      }
+      if (args?.where?.date?.lte) {
+        list = list.filter((d) => new Date(d.date) <= new Date(args.where.date.lte))
+      }
+      list.sort((a, b) => new Date(b.date) - new Date(a.date))
+      return applyPagination(list, args)
+    },
+    findUnique: async (args) => mockDailyWorkLogs.find((d) => d.id === args.where.id) || null,
+    create: async (args) => {
+      const item = {
+        id: `dwl-${Date.now()}`,
+        timeSpentHours: 0,
+        ...args.data,
+        date: args.data.date ? new Date(args.data.date) : new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      mockDailyWorkLogs.unshift(item)
+      saveMockDb()
+      return item
+    },
+    update: async (args) => {
+      const idx = mockDailyWorkLogs.findIndex((d) => d.id === args.where.id)
+      if (idx !== -1) {
+        mockDailyWorkLogs[idx] = { ...mockDailyWorkLogs[idx], ...args.data, updatedAt: new Date() }
+        saveMockDb()
+        return mockDailyWorkLogs[idx]
+      }
+      throw new Error('DailyWorkLog not found')
+    },
+    delete: async (args) => {
+      const idx = mockDailyWorkLogs.findIndex((d) => d.id === args.where.id)
+      if (idx !== -1) {
+        const deleted = mockDailyWorkLogs[idx]
+        mockDailyWorkLogs = mockDailyWorkLogs.filter((d) => d.id !== args.where.id)
+        saveMockDb()
+        return deleted
+      }
+      throw new Error('DailyWorkLog not found')
+    },
+  },
+
+  projectIssue: {
+    findMany: async (args) => {
+      let list = [...mockProjectIssues]
+      if (args?.where?.clientProjectId) {
+        list = list.filter((i) => i.clientProjectId === args.where.clientProjectId)
+      }
+      if (args?.where?.status) {
+        if (typeof args.where.status === 'object' && args.where.status.not) {
+          list = list.filter((i) => i.status !== args.where.status.not)
+        } else {
+          list = list.filter((i) => i.status === args.where.status)
+        }
+      }
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      return applyPagination(list, args)
+    },
+    findUnique: async (args) => mockProjectIssues.find((i) => i.id === args.where.id) || null,
+    create: async (args) => {
+      const item = {
+        id: `pi-${Date.now()}`,
+        issueType: 'BUG',
+        severity: 'MEDIUM',
+        status: 'OPEN',
+        ...args.data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      mockProjectIssues.unshift(item)
+      saveMockDb()
+      return item
+    },
+    update: async (args) => {
+      const idx = mockProjectIssues.findIndex((i) => i.id === args.where.id)
+      if (idx !== -1) {
+        mockProjectIssues[idx] = { ...mockProjectIssues[idx], ...args.data, updatedAt: new Date() }
+        saveMockDb()
+        return mockProjectIssues[idx]
+      }
+      throw new Error('ProjectIssue not found')
+    },
+    delete: async (args) => {
+      const idx = mockProjectIssues.findIndex((i) => i.id === args.where.id)
+      if (idx !== -1) {
+        const deleted = mockProjectIssues[idx]
+        mockProjectIssues = mockProjectIssues.filter((i) => i.id !== args.where.id)
+        saveMockDb()
+        return deleted
+      }
+      throw new Error('ProjectIssue not found')
+    },
+  },
+
+  projectFeature: {
+    findMany: async (args) => {
+      let list = [...mockProjectFeatures]
+      if (args?.where?.clientProjectId) {
+        list = list.filter((f) => f.clientProjectId === args.where.clientProjectId)
+      }
+      if (args?.where?.status) {
+        list = list.filter((f) => f.status === args.where.status)
+      }
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      return applyPagination(list, args)
+    },
+    findUnique: async (args) => mockProjectFeatures.find((f) => f.id === args.where.id) || null,
+    create: async (args) => {
+      const item = {
+        id: `pf-${Date.now()}`,
+        status: 'PLANNED',
+        ...args.data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      mockProjectFeatures.unshift(item)
+      saveMockDb()
+      return item
+    },
+    update: async (args) => {
+      const idx = mockProjectFeatures.findIndex((f) => f.id === args.where.id)
+      if (idx !== -1) {
+        mockProjectFeatures[idx] = { ...mockProjectFeatures[idx], ...args.data, updatedAt: new Date() }
+        saveMockDb()
+        return mockProjectFeatures[idx]
+      }
+      throw new Error('ProjectFeature not found')
+    },
+    delete: async (args) => {
+      const idx = mockProjectFeatures.findIndex((f) => f.id === args.where.id)
+      if (idx !== -1) {
+        const deleted = mockProjectFeatures[idx]
+        mockProjectFeatures = mockProjectFeatures.filter((f) => f.id !== args.where.id)
+        saveMockDb()
+        return deleted
+      }
+      throw new Error('ProjectFeature not found')
+    },
+  },
+
+  billingMilestone: {
+    findMany: async (args) => {
+      let list = [...mockBillingMilestones]
+      if (args?.where?.clientProjectId) {
+        list = list.filter((b) => b.clientProjectId === args.where.clientProjectId)
+      }
+      if (args?.where?.status) {
+        list = list.filter((b) => b.status === args.where.status)
+      }
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      return applyPagination(list, args)
+    },
+    findUnique: async (args) => mockBillingMilestones.find((b) => b.id === args.where.id) || null,
+    create: async (args) => {
+      const item = {
+        id: `bm-${Date.now()}`,
+        status: 'PENDING',
+        amount: 0,
+        ...args.data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      mockBillingMilestones.unshift(item)
+      saveMockDb()
+      return item
+    },
+    update: async (args) => {
+      const idx = mockBillingMilestones.findIndex((b) => b.id === args.where.id)
+      if (idx !== -1) {
+        mockBillingMilestones[idx] = { ...mockBillingMilestones[idx], ...args.data, updatedAt: new Date() }
+        saveMockDb()
+        return mockBillingMilestones[idx]
+      }
+      throw new Error('BillingMilestone not found')
+    },
+    delete: async (args) => {
+      const idx = mockBillingMilestones.findIndex((b) => b.id === args.where.id)
+      if (idx !== -1) {
+        const deleted = mockBillingMilestones[idx]
+        mockBillingMilestones = mockBillingMilestones.filter((b) => b.id !== args.where.id)
+        saveMockDb()
+        return deleted
+      }
+      throw new Error('BillingMilestone not found')
+    },
+  },
+
+  attachment: {
+    findMany: async (args) => {
+      let list = [...mockAttachments]
+      if (args?.where?.clientProjectId) {
+        list = list.filter((a) => a.clientProjectId === args.where.clientProjectId)
+      }
+      if (args?.where?.taskId) {
+        list = list.filter((a) => a.taskId === args.where.taskId)
+      }
+      return applyPagination(list, args)
+    },
+    findUnique: async (args) => mockAttachments.find((a) => a.id === args.where.id) || null,
+    create: async (args) => {
+      const item = {
+        id: `att-${Date.now()}`,
+        category: 'GENERAL',
+        ...args.data,
+        createdAt: new Date(),
+      }
+      mockAttachments.unshift(item)
+      saveMockDb()
+      return item
+    },
+    delete: async (args) => {
+      const idx = mockAttachments.findIndex((a) => a.id === args.where.id)
+      if (idx !== -1) {
+        const deleted = mockAttachments[idx]
+        mockAttachments = mockAttachments.filter((a) => a.id !== args.where.id)
+        saveMockDb()
+        return deleted
+      }
+      throw new Error('Attachment not found')
     },
   },
 
@@ -1877,6 +2220,11 @@ function saveMockDb() {
       mockAdmin,
       mockClientProjects,
       mockWorkTasks,
+      mockBillingMilestones,
+      mockAttachments,
+      mockDailyWorkLogs,
+      mockProjectIssues,
+      mockProjectFeatures,
       mockQuickNotes,
       mockActivityLogs,
       mockSocialPostDrafts,
@@ -1948,6 +2296,45 @@ function loadMockDb() {
           dueDate: wt.dueDate ? new Date(wt.dueDate) : null,
           createdAt: new Date(wt.createdAt),
           updatedAt: new Date(wt.updatedAt),
+        }))
+      }
+      if (data.mockBillingMilestones) {
+        mockBillingMilestones = data.mockBillingMilestones.map((b) => ({
+          ...b,
+          dueDate: b.dueDate ? new Date(b.dueDate) : null,
+          paidAt: b.paidAt ? new Date(b.paidAt) : null,
+          createdAt: new Date(b.createdAt),
+          updatedAt: new Date(b.updatedAt),
+        }))
+      }
+      if (data.mockAttachments) {
+        mockAttachments = data.mockAttachments.map((a) => ({
+          ...a,
+          createdAt: new Date(a.createdAt),
+        }))
+      }
+      if (data.mockDailyWorkLogs) {
+        mockDailyWorkLogs = data.mockDailyWorkLogs.map((d) => ({
+          ...d,
+          date: new Date(d.date),
+          createdAt: new Date(d.createdAt),
+          updatedAt: new Date(d.updatedAt),
+        }))
+      }
+      if (data.mockProjectIssues) {
+        mockProjectIssues = data.mockProjectIssues.map((i) => ({
+          ...i,
+          resolvedAt: i.resolvedAt ? new Date(i.resolvedAt) : null,
+          createdAt: new Date(i.createdAt),
+          updatedAt: new Date(i.updatedAt),
+        }))
+      }
+      if (data.mockProjectFeatures) {
+        mockProjectFeatures = data.mockProjectFeatures.map((f) => ({
+          ...f,
+          releasedAt: f.releasedAt ? new Date(f.releasedAt) : null,
+          createdAt: new Date(f.createdAt),
+          updatedAt: new Date(f.updatedAt),
         }))
       }
       if (data.mockQuickNotes) {

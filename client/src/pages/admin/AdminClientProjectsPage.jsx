@@ -1,6 +1,6 @@
 /**
- * AdminClientProjectsPage — Enterprise Management & Deliverables Vault for Client Projects
- * Full client project tracking, billing integration, attachment vault, SLA deadline countdowns, CSV/PDF reports, and optimistic ConfirmModal updates.
+ * AdminClientProjectsPage.jsx — Enterprise Client Projects Tracker & Vault
+ * Integrated Daily Work Logs, Bug/Issue Tracker, Feature Pipeline, Management Reporting, and 360° Workspace.
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -28,16 +28,38 @@ import {
   Printer,
   ChevronRight,
   Briefcase,
+  Globe,
+  ExternalLink,
+  Code2,
+  AlertTriangle,
+  Bug,
+  Layers,
+  Lock,
+  BarChart3,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { api } from '@/utils/api'
 import { SEO, ConfirmModal } from '@/components/ui'
 import AttachmentSection from '@/components/ui/AttachmentSection'
 import AdminBillingSection from '@/components/admin/AdminBillingSection'
+import BossReportModal from '@/components/admin/BossReportModal'
+import ProjectWorkspaceDrawer from '@/components/admin/ProjectWorkspaceDrawer'
 import { useToast } from '@/components/ui/ToastProvider'
 
 const STATUSES = ['PLANNING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'ON_HOLD']
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
+
+const PROJECT_TYPES = [
+  'Website Development',
+  'Web Application',
+  'Mobile Application',
+  'Client Portal',
+  'Admin Panel',
+  'E-Commerce Website',
+  'API / Backend Development',
+  'Maintenance & Support',
+  'Custom Project',
+]
 
 const STATUS_LABELS = {
   PLANNING: 'Planning',
@@ -60,6 +82,12 @@ const PRIORITY_COLORS = {
   MEDIUM: 'bg-amber-50 text-amber-700 border-amber-200/80',
   HIGH: 'bg-orange-50 text-orange-700 border-orange-200/80 font-bold',
   URGENT: 'bg-rose-50 text-rose-700 border-rose-200/80 font-extrabold ring-1 ring-rose-500/20',
+}
+
+const HEALTH_COLORS = {
+  ON_TRACK: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  AT_RISK: 'bg-amber-50 text-amber-700 border-amber-200 font-bold',
+  DELAYED: 'bg-rose-50 text-rose-700 border-rose-200 font-bold ring-1 ring-rose-500/20',
 }
 
 const inputCls =
@@ -95,6 +123,12 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           clientId: initial.clientId || '',
           assignedTo: initial.assignedTo || '',
           assignedToEmail: initial.assignedToEmail || '',
+          projectType: initial.projectType || 'Website Development',
+          health: initial.health || 'ON_TRACK',
+          liveUrl: initial.liveUrl || '',
+          stagingUrl: initial.stagingUrl || '',
+          repoUrl: initial.repoUrl || '',
+          credentialsNotes: initial.credentialsNotes || '',
         }
       : {
           clientName: '',
@@ -111,6 +145,12 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           priority: 'MEDIUM',
           progress: 0,
           clientId: '',
+          projectType: 'Website Development',
+          health: 'ON_TRACK',
+          liveUrl: '',
+          stagingUrl: '',
+          repoUrl: '',
+          credentialsNotes: '',
         },
   })
 
@@ -131,6 +171,12 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
       priority: data.priority || 'MEDIUM',
       progress: parseInt(data.progress || 0),
       clientId: data.clientId || null,
+      projectType: data.projectType || 'Website Development',
+      health: data.health || 'ON_TRACK',
+      liveUrl: data.liveUrl || null,
+      stagingUrl: data.stagingUrl || null,
+      repoUrl: data.repoUrl || null,
+      credentialsNotes: data.credentialsNotes || null,
       tags: data.tags
         ? typeof data.tags === 'string'
           ? data.tags.split(',').map((t) => t.trim()).filter(Boolean)
@@ -150,7 +196,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
       {/* Section 1: Core Client & Project Identification */}
       <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
         <p className="text-xs font-bold text-brand-blue uppercase tracking-wider flex items-center gap-2">
-          <span>📋</span> 1. Core Identification & Client Account
+          <span>📋</span> 1. Core Identification &amp; Client Account
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -172,6 +218,18 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
               className={inputCls}
               placeholder="e.g. Ramesh Textiles Pvt Ltd"
             />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Project Type / Category
+            </label>
+            <select {...register('projectType')} className={inputCls}>
+              {PROJECT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
@@ -199,7 +257,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
               ))}
             </select>
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
               Assigned To (Team Lead / Staff)
             </label>
@@ -239,7 +297,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
       {/* Section 2: Financial Budget & Schedule */}
       <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
         <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-          <span>💵</span> 2. Financial Budget & Project Schedule
+          <span>💵</span> 2. Financial Budget, Schedule &amp; Health
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div>
@@ -263,24 +321,55 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Priority Level</label>
-            <select {...register('priority')} className={inputCls}>
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">Project Health</label>
+            <select {...register('health')} className={inputCls}>
+              <option value="ON_TRACK">● On Track (Normal)</option>
+              <option value="AT_RISK">● At Risk (Blockers)</option>
+              <option value="DELAYED">● Delayed (Past SLA)</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Section 3: Lifecycle Status & Completion Progress */}
+      {/* Section 3: Deployment & Repository URLs */}
+      <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
+        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-2">
+          <span>🌐</span> 3. Deployment, Testing &amp; Source Code Links
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">Live Production URL</label>
+            <input
+              {...register('liveUrl')}
+              placeholder="https://example.com"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">Staging / Test URL</label>
+            <input
+              {...register('stagingUrl')}
+              placeholder="https://staging.example.com"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">Git Repository URL</label>
+            <input
+              {...register('repoUrl')}
+              placeholder="https://github.com/..."
+              className={inputCls}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Section 4: Lifecycle Status & Completion Progress */}
       <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
         <p className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-2">
-          <span>📈</span> 3. Lifecycle Status & Completion Progress
+          <span>📈</span> 4. Lifecycle Status &amp; Completion Progress
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">Lifecycle Status</label>
             <select {...register('status')} className={inputCls}>
@@ -292,12 +381,22 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
             </select>
           </div>
           <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">Priority Level</label>
+            <select {...register('priority')} className={inputCls}>
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
               Tags (Comma Separated)
             </label>
             <input {...register('tags')} className={inputCls} placeholder="Web, React, E-Commerce, SEO" />
           </div>
-          <div className="sm:col-span-2 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+          <div className="sm:col-span-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
             <div className="flex justify-between items-center text-xs font-bold text-gray-800 flex-wrap gap-2">
               <span className="flex items-center gap-1.5">
                 <span>🎯</span> Completion Progress Tracker
@@ -344,10 +443,10 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
         </div>
       </div>
 
-      {/* Section 4: Brief Description & Confidential Notes */}
+      {/* Section 5: Brief Description, Confidential Notes & Credentials */}
       <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
         <p className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-2">
-          <span>📝</span> 4. Project Brief & Confidential Internal Notes
+          <span>📝</span> 5. Project Brief, Internal Notes &amp; Credentials
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -369,17 +468,29 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
               rows={3}
               {...register('notes')}
               className={`${inputCls} resize-none bg-amber-50/30 border-amber-200/60 focus:bg-white`}
-              placeholder="Internal credentials, payment agreements, team notes..."
+              placeholder="Internal agreements, team milestones, meeting notes..."
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-bold text-amber-900 block mb-1.5 flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-amber-700" />
+              Confidential Access Credentials (Server, Hosting, API Keys)
+            </label>
+            <textarea
+              rows={2}
+              {...register('credentialsNotes')}
+              className={`${inputCls} resize-none bg-amber-50/40 border-amber-200 font-mono text-xs focus:bg-white`}
+              placeholder="e.g. CPanel login, AWS EC2 IP, Razorpay Key ID (stored securely for internal team)..."
             />
           </div>
         </div>
       </div>
 
-      {/* Section 5: Attachment File Vault (If Editing Existing Project) */}
+      {/* Section 6: Attachment File Vault (If Editing Existing Project) */}
       {initial && (
         <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
           <p className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-2">
-            <span>📎</span> 5. Project Vault File Attachments & Assets
+            <span>📎</span> 6. Project Vault File Attachments &amp; Assets
           </p>
           <AttachmentSection
             attachments={initial.attachments}
@@ -421,7 +532,13 @@ export default function AdminClientProjectsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [priorityFilter, setPriorityFilter] = useState('ALL')
   const [portalLinkFilter, setPortalLinkFilter] = useState('ALL')
-  const [quickViewProject, setQuickViewProject] = useState(null)
+  const [projectTypeFilter, setProjectTypeFilter] = useState('ALL')
+  const [clientFilter, setClientFilter] = useState('ALL')
+  const [healthFilter, setHealthFilter] = useState('ALL')
+
+  // Modals & Drawers
+  const [workspaceProject, setWorkspaceProject] = useState(null)
+  const [showBossReport, setShowBossReport] = useState(false)
 
   // Confirm Modals state
   const [deleteConfirm, setDeleteConfirm] = useState({
@@ -440,6 +557,16 @@ export default function AdminClientProjectsPage() {
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-client-projects'],
     queryFn: () => api.get('/admin/client-projects').then((r) => r.data),
+  })
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ['admin-clients-list'],
+    queryFn: () => api.get('/admin/clients').then((r) => r.data),
+  })
+
+  const { data: assignableTeam = [] } = useQuery({
+    queryKey: ['admin-assignable-team-dropdown'],
+    queryFn: () => api.get('/admin/users/list-assignable').then((r) => r.data),
   })
 
   // Mutations
@@ -475,7 +602,6 @@ export default function AdminClientProjectsPage() {
     mutationFn: (id) => api.delete(`/admin/client-projects/${id}`),
     onSuccess: (_, deletedId) => {
       toast.info('Client project removed from system.')
-      // 0ms Optimistic removal
       qc.setQueryData(['admin-client-projects'], (old) => {
         if (!Array.isArray(old)) return old
         return old.filter((p) => p.id !== deletedId)
@@ -502,161 +628,73 @@ export default function AdminClientProjectsPage() {
     searchTerm !== '' ||
     statusFilter !== 'ALL' ||
     priorityFilter !== 'ALL' ||
-    portalLinkFilter !== 'ALL'
+    portalLinkFilter !== 'ALL' ||
+    projectTypeFilter !== 'ALL' ||
+    clientFilter !== 'ALL' ||
+    healthFilter !== 'ALL'
 
   const resetFilters = () => {
     setSearchTerm('')
     setStatusFilter('ALL')
     setPriorityFilter('ALL')
     setPortalLinkFilter('ALL')
+    setProjectTypeFilter('ALL')
+    setClientFilter('ALL')
+    setHealthFilter('ALL')
   }
 
   const handleExportCSV = () => {
-    if (!projects.length) return
-    const headers = ['Project Title', 'Client Name', 'Status', 'Priority', 'Progress (%)', 'Budget', 'Start Date', 'Deadline', 'Assigned To']
+    const headers = [
+      'Project Title',
+      'Client Name',
+      'Type',
+      'Status',
+      'Health',
+      'Priority',
+      'Progress (%)',
+      'Budget',
+      'Start Date',
+      'Deadline',
+      'Assigned To',
+      'Live URL',
+    ]
     const rows = projects.map((p) => [
-      p.projectTitle,
-      p.clientName,
+      `"${p.projectTitle.replace(/"/g, '""')}"`,
+      `"${p.clientName.replace(/"/g, '""')}"`,
+      `"${p.projectType || 'Website'}"`,
       p.status,
+      p.health || 'ON_TRACK',
       p.priority,
-      `${p.progress}%`,
-      p.budget || '',
-      new Date(p.startDate).toLocaleDateString(),
-      new Date(p.deadline).toLocaleDateString(),
-      p.assignedTo || '',
+      p.progress,
+      `"${(p.budget || '').replace(/"/g, '""')}"`,
+      new Date(p.startDate).toISOString().split('T')[0],
+      new Date(p.deadline).toISOString().split('T')[0],
+      `"${(p.assignedTo || '').replace(/"/g, '""')}"`,
+      `"${(p.liveUrl || '').replace(/"/g, '""')}"`,
     ])
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n')
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement('a')
     link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `projects_summary_${new Date().toISOString().split('T')[0]}.csv`)
+    link.setAttribute('download', `SnapTech_Client_Projects_${new Date().toISOString().split('T')[0]}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success('CSV Report downloaded!')
-  }
-
-  const handleExportPDF = () => {
-    if (!projects.length) return
-
-    const totalBudget = projects.reduce((acc, p) => {
-      const num = parseFloat(String(p.budget || '').replace(/[^0-9.]/g, ''))
-      return acc + (isNaN(num) ? 0 : num)
-    }, 0)
-
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) {
-      toast.error('Pop-up blocker is enabled. Please allow pop-ups to export PDF.')
-      return
-    }
-
-    const rowsHtml = projects.map(p => `
-      <tr style="border-bottom: 1px solid #E5E7EB;">
-        <td style="padding: 12px; font-weight: bold; color: #111827;">${p.projectTitle}</td>
-        <td style="padding: 12px; color: #4B5563;">${p.clientName}</td>
-        <td style="padding: 12px;"><span style="padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; border: 1px solid #ccc; text-transform: uppercase;">${p.status}</span></td>
-        <td style="padding: 12px; font-weight: 500; color: #111827;">${p.budget || '—'}</td>
-        <td style="padding: 12px; color: #4B5563;">${p.progress}%</td>
-        <td style="padding: 12px; color: #4B5563;">${new Date(p.deadline).toLocaleDateString('en-IN')}</td>
-      </tr>
-    `).join('')
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Client Projects Report — SnapTech Digital</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1F2937; margin: 0; background: #fff; }
-            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1A3E8C; padding-bottom: 20px; margin-bottom: 30px; }
-            .title { font-size: 24px; font-weight: 700; color: #1A3E8C; margin: 0; text-transform: uppercase; }
-            .meta { font-size: 11px; color: #6B7280; text-align: right; }
-            .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
-            .stat-card { border: 1px solid #E5E7EB; border-radius: 12px; padding: 16px; background: #F9FAFB; }
-            .stat-label { font-size: 10px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; }
-            .stat-value { font-size: 20px; font-weight: 700; color: #111827; margin-top: 4px; }
-            table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; margin-top: 20px; }
-            th { background: #F3F4F6; color: #374151; font-weight: 600; padding: 12px; text-transform: uppercase; font-size: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div>
-              <h1 class="title">Client Projects Summary Report</h1>
-              <p style="margin: 4px 0 0 0; font-size: 12px; color: #4B5563;">SnapTech Digital Management Vault</p>
-            </div>
-            <div class="meta">
-              <p style="margin:0;">Generated on: ${new Date().toLocaleDateString('en-IN')}</p>
-              <p style="margin: 2px 0 0 0;">Confidential Admin Audit</p>
-            </div>
-          </div>
-
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-label">Total Projects</div>
-              <div class="stat-value">${projects.length}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Active Projects</div>
-              <div class="stat-value" style="color: #2563EB;">${projects.filter(p => p.status !== 'COMPLETED').length}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Completed</div>
-              <div class="stat-value" style="color: #10B981;">${projects.filter(p => p.status === 'COMPLETED').length}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Estimated Budget Value</div>
-              <div class="stat-value" style="color: #111827;">₹${totalBudget.toLocaleString('en-IN')}</div>
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th style="padding: 12px;">Project Name</th>
-                <th style="padding: 12px;">Client</th>
-                <th style="padding: 12px;">Status</th>
-                <th style="padding: 12px;">Budget</th>
-                <th style="padding: 12px;">Progress</th>
-                <th style="padding: 12px;">Deadline</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-
-          <div style="margin-top: 50px; text-align: center; font-size: 10px; color: #9CA3AF; border-top: 1px dashed #E5E7EB; padding-top: 20px;">
-            SnapTech Digital projects management database report. Confidential.
-          </div>
-
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(() => window.close(), 500);
-            }
-          </script>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
   }
 
   const handleAttachmentChange = async () => {
     const updated = await refetch()
     const list = Array.isArray(updated.data) ? updated.data : []
     const found = list.find((p) => p.id === editing?.id)
-    if (found) {
-      setEditing(found)
-    }
+    if (found) setEditing(found)
   }
 
   const getDeadlineText = (deadlineStr, status) => {
     if (status === 'COMPLETED') {
-      return { text: 'Completed', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' }
+      return { text: 'Completed', color: 'text-emerald-700 bg-emerald-50 border-emerald-200 font-bold' }
     }
     const deadline = new Date(deadlineStr)
     const now = new Date()
@@ -665,7 +703,7 @@ export default function AdminClientProjectsPage() {
 
     if (diffDays < 0) {
       return {
-        text: `OVERDUE (${Math.abs(diffDays)}d)`,
+        text: `Overdue by ${Math.abs(diffDays)}d`,
         color: 'text-rose-700 bg-rose-50 border-rose-200 font-bold',
       }
     }
@@ -703,11 +741,21 @@ export default function AdminClientProjectsPage() {
       portalLinkFilter === 'ALL' ||
       (portalLinkFilter === 'LINKED' && p.client) ||
       (portalLinkFilter === 'UNLINKED' && !p.client)
+    const matchesProjectType = projectTypeFilter === 'ALL' || (p.projectType || 'Website Development') === projectTypeFilter
+    const matchesClient = clientFilter === 'ALL' || p.clientName === clientFilter || p.clientId === clientFilter
+    const matchesHealth = healthFilter === 'ALL' || (p.health || 'ON_TRACK') === healthFilter
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesPortalLink
+    return matchesSearch && matchesStatus && matchesPriority && matchesPortalLink && matchesProjectType && matchesClient && matchesHealth
   })
 
+  // Selected Client Summary for Client Profile Portfolio View
+  const selectedClientProjects = clientFilter !== 'ALL'
+    ? projects.filter((p) => p.clientName === clientFilter || p.clientId === clientFilter)
+    : []
+
   // Summary Metrics
+  const totalOpenIssues = projects.reduce((acc, p) => acc + (p.issues?.filter((i) => i.status !== 'RESOLVED').length || 0), 0)
+
   const stats = {
     total: projects.length,
     active: projects.filter((p) => p.status !== 'COMPLETED').length,
@@ -716,13 +764,13 @@ export default function AdminClientProjectsPage() {
       if (p.status === 'COMPLETED') return false
       return new Date(p.deadline) < new Date()
     }).length,
+    openIssues: totalOpenIssues,
   }
 
   return (
     <>
-      <SEO title="Client Projects Tracker" noIndex />
+      <SEO title="Client Projects Tracker & Vault" noIndex />
       <div className="space-y-6 max-w-7xl mx-auto pb-12">
-
         {/* ── Executive Dark Header Banner ────────────────────────── */}
         <div className="bg-linear-to-r from-slate-900 via-gray-900 to-brand-blue p-6 sm:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-brand-blue/20 rounded-full blur-3xl pointer-events-none" />
@@ -738,17 +786,26 @@ export default function AdminClientProjectsPage() {
                     Client Projects Tracker &amp; Vault
                   </h1>
                   <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30 uppercase tracking-wider">
-                    Client Portal SLA
+                    Executive Portal
                   </span>
                 </div>
                 <p className="text-gray-300 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
-                  Track client project lifecycles, milestone deliverables, budgets, file attachment vaults, and client portal access credentials.
+                  Track daily development work, issues, new features, milestone deliverables, file vault assets, and generate management reports.
                 </p>
               </div>
             </div>
 
-            {/* Header Controls: Export & Add */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* Header Controls: Boss Reports, Export & Add */}
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                onClick={() => setShowBossReport(true)}
+                className="px-4 py-2.5 bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
+                title="Open Executive Boss & Management Reporting Generator"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Boss Reports</span>
+              </button>
+
               <button
                 onClick={() => {
                   refetch()
@@ -761,28 +818,13 @@ export default function AdminClientProjectsPage() {
               </button>
 
               {projects.length > 0 && (
-                <div className="relative group">
-                  <button className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 text-white">
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export</span>
-                  </button>
-                  <div className="absolute right-0 top-full mt-1.5 w-52 bg-white text-slate-900 border border-gray-200 rounded-2xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 z-30 py-1.5">
-                    <button
-                      onClick={handleExportCSV}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                      <span>Export CSV Spreadsheet</span>
-                    </button>
-                    <button
-                      onClick={handleExportPDF}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Printer className="w-4 h-4 text-blue-600" />
-                      <span>Print PDF Report</span>
-                    </button>
-                  </div>
-                </div>
+                <button
+                  onClick={handleExportCSV}
+                  className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 text-white"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>CSV</span>
+                </button>
               )}
 
               {!showForm && !editing && (
@@ -802,8 +844,8 @@ export default function AdminClientProjectsPage() {
         </div>
 
         {/* ── Summary Metric Stats Row ────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-gray-100 text-gray-700 border border-gray-200 flex items-center justify-center shrink-0">
               <FolderOpen className="w-5 h-5" />
             </div>
@@ -815,19 +857,19 @@ export default function AdminClientProjectsPage() {
             </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-brand-blue border border-blue-100 flex items-center justify-center shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Projects</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Work</p>
               <p className="text-xl font-extrabold font-heading text-brand-blue">
                 {isLoading ? '…' : stats.active}
               </p>
             </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
               <FileCheck className="w-5 h-5" />
             </div>
@@ -839,7 +881,7 @@ export default function AdminClientProjectsPage() {
             </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
               stats.overdue > 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-gray-50 text-gray-400 border-gray-200'
             }`}>
@@ -849,6 +891,20 @@ export default function AdminClientProjectsPage() {
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Overdue SLA</p>
               <p className={`text-xl font-extrabold font-heading ${stats.overdue > 0 ? 'text-rose-600' : 'text-gray-900'}`}>
                 {isLoading ? '…' : stats.overdue}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+              stats.openIssues > 0 ? 'bg-rose-50 text-rose-600 border-rose-200 ring-1 ring-rose-400/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+            }`}>
+              <Bug className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Open Blockers</p>
+              <p className={`text-xl font-extrabold font-heading ${stats.openIssues > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {isLoading ? '…' : stats.openIssues}
               </p>
             </div>
           </div>
@@ -888,17 +944,76 @@ export default function AdminClientProjectsPage() {
                   onAttachmentChange={handleAttachmentChange}
                 />
 
-                {/* Integrated Billing & Invoice Section for Existing Project */}
+                {/* Integrated Billing & Invoice Section for Existing Project (Bug fixed: projectId={editing.id}) */}
                 <div className="pt-6 border-t border-gray-200">
-                  <AdminBillingSection clientProjectId={editing.id} clientProject={editing} />
+                  <AdminBillingSection
+                    projectId={editing.id}
+                    clientProjectId={editing.id}
+                    currentRole="ADMIN"
+                  />
                 </div>
               </div>
             )}
           </div>
         )}
 
+        {/* ── Client Portfolio Summary Banner (When Filtered by Client) ── */}
+        {clientFilter !== 'ALL' && selectedClientProjects.length > 0 && (
+          <div className="bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200/80 p-5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fadeIn shadow-xs">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-brand-blue text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                <Building2 className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-extrabold text-gray-900">
+                    Client Profile: {clientFilter}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-brand-blue border border-blue-200">
+                    {selectedClientProjects.length} Projects
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Portfolio summary for client deliverables, active progress, and open issues.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 text-xs font-bold text-gray-700 shrink-0 flex-wrap">
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-blue-100 shadow-2xs">
+                Active:{' '}
+                <span className="text-brand-blue">
+                  {selectedClientProjects.filter((p) => p.status !== 'COMPLETED').length}
+                </span>
+              </div>
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-blue-100 shadow-2xs">
+                Completed:{' '}
+                <span className="text-emerald-600">
+                  {selectedClientProjects.filter((p) => p.status === 'COMPLETED').length}
+                </span>
+              </div>
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-blue-100 shadow-2xs">
+                Avg Progress:{' '}
+                <span className="text-purple-700 font-mono">
+                  {Math.round(
+                    selectedClientProjects.reduce((acc, p) => acc + (p.progress || 0), 0) /
+                      selectedClientProjects.length
+                  )}
+                  %
+                </span>
+              </div>
+              <button
+                onClick={() => setClientFilter('ALL')}
+                className="text-xs text-brand-blue hover:underline cursor-pointer"
+              >
+                Clear Client Filter &times;
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Search & Filter Controls ───────────────────────────── */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -919,6 +1034,46 @@ export default function AdminClientProjectsPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Client Portfolio Filter */}
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none font-bold text-gray-700 shadow-xs cursor-pointer max-w-[160px]"
+            >
+              <option value="ALL">All Clients</option>
+              {[...new Set(projects.map((p) => p.clientName))].map((cName) => (
+                <option key={cName} value={cName}>
+                  {cName}
+                </option>
+              ))}
+            </select>
+
+            {/* Project Type Filter */}
+            <select
+              value={projectTypeFilter}
+              onChange={(e) => setProjectTypeFilter(e.target.value)}
+              className="px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none font-bold text-gray-700 shadow-xs cursor-pointer"
+            >
+              <option value="ALL">All Types</option>
+              {PROJECT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+
+            {/* Health Filter */}
+            <select
+              value={healthFilter}
+              onChange={(e) => setHealthFilter(e.target.value)}
+              className="px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none font-bold text-gray-700 shadow-xs cursor-pointer"
+            >
+              <option value="ALL">Health: All</option>
+              <option value="ON_TRACK">● On Track</option>
+              <option value="AT_RISK">● At Risk</option>
+              <option value="DELAYED">● Delayed</option>
+            </select>
+
             {/* Priority Filter */}
             <select
               value={priorityFilter}
@@ -932,24 +1087,13 @@ export default function AdminClientProjectsPage() {
               <option value="URGENT">Urgent</option>
             </select>
 
-            {/* Portal Link Filter */}
-            <select
-              value={portalLinkFilter}
-              onChange={(e) => setPortalLinkFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none font-bold text-gray-700 shadow-xs cursor-pointer"
-            >
-              <option value="ALL">Portal Link: All</option>
-              <option value="LINKED">Linked Only</option>
-              <option value="UNLINKED">Unlinked Only</option>
-            </select>
-
             {/* Reset Filters */}
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
                 className="px-3 py-2 text-xs font-bold text-brand-blue hover:text-blue-700 bg-blue-50 border border-blue-100 rounded-xl transition-all cursor-pointer"
               >
-                Reset Filters
+                Reset
               </button>
             )}
 
@@ -1009,27 +1153,41 @@ export default function AdminClientProjectsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredProjects.map((p) => {
               const deadlineStatus = getDeadlineText(p.deadline, p.status)
+              const projectOpenIssues = (p.issues || []).filter((i) => i.status !== 'RESOLVED').length
+              const tasksDone = (p.tasks || []).filter((t) => t.status === 'DONE').length
+              const totalTasks = (p.tasks || []).length
+              const logsCount = (p.dailyLogs || []).length
 
               return (
                 <div
                   key={p.id}
-                  className="bg-white rounded-3xl border border-gray-200/90 p-5 flex flex-col justify-between hover:shadow-lg hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-200 relative group"
+                  className="bg-white rounded-3xl border border-gray-200/90 p-5 flex flex-col justify-between hover:shadow-lg hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-200 relative group cursor-pointer"
+                  onClick={() => setWorkspaceProject(p)}
                 >
                   <div>
-                    {/* Status & Priority header tags */}
-                    <div className="flex items-center justify-between mb-3.5">
-                      <select
-                        value={p.status}
-                        onChange={(e) => updateMutation.mutate({ id: p.id, status: e.target.value })}
-                        className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-lg border cursor-pointer focus:outline-none ${STATUS_COLORS[p.status]}`}
-                        title="Click to quick update project status"
-                      >
-                        {STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {STATUS_LABELS[s]}
-                          </option>
-                        ))}
-                      </select>
+                    {/* Header tags: Status, Health & Priority */}
+                    <div
+                      className="flex items-center justify-between mb-3.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={p.status}
+                          onChange={(e) => updateMutation.mutate({ id: p.id, status: e.target.value })}
+                          className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-lg border cursor-pointer focus:outline-none ${STATUS_COLORS[p.status]}`}
+                          title="Click to quick update project status"
+                        >
+                          {STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {STATUS_LABELS[s]}
+                            </option>
+                          ))}
+                        </select>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${HEALTH_COLORS[p.health || 'ON_TRACK']}`}>
+                          ● {p.health === 'DELAYED' ? 'Delayed' : p.health === 'AT_RISK' ? 'At Risk' : 'On Track'}
+                        </span>
+                      </div>
+
                       <span
                         className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${PRIORITY_COLORS[p.priority]}`}
                       >
@@ -1042,20 +1200,23 @@ export default function AdminClientProjectsPage() {
                       {p.projectTitle}
                     </h3>
 
-                    {/* Client Name & Portal Link Badge */}
-                    <p className="text-xs text-gray-500 font-bold mb-3 flex items-center gap-1 flex-wrap">
+                    {/* Client Name, Type & Portal Link Badge */}
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-500 font-bold mb-3 mt-1">
                       <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                       <span>{p.clientName}</span>
+                      <span className="text-[10px] font-semibold text-gray-600 bg-gray-100 px-1.5 py-0.2 rounded border border-gray-200">
+                        {p.projectType || 'Website'}
+                      </span>
                       {p.client ? (
-                        <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-1.5 py-0.5 rounded font-extrabold ml-1" title={`Linked to client portal account: ${p.client.email}`}>
-                          Portal Linked
+                        <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-1.5 py-0.5 rounded font-extrabold" title={`Linked to client portal account: ${p.client.email}`}>
+                          Portal
                         </span>
                       ) : (
-                        <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold ml-1" title="Client account not linked. Edit project to link a Client so they can view it in their Portal.">
-                          ⚠️ Portal Unlinked
+                        <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold" title="Portal account unlinked">
+                          Unlinked
                         </span>
                       )}
-                    </p>
+                    </div>
 
                     {/* Progress Bar */}
                     <div className="mb-4">
@@ -1071,8 +1232,40 @@ export default function AdminClientProjectsPage() {
                       </div>
                     </div>
 
+                    {/* Project Intelligence Counters (Logs, Tasks, Issues, Vault) */}
+                    <div className="flex items-center gap-1.5 flex-wrap mb-3 text-[10px] font-bold">
+                      {logsCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-md bg-blue-50 text-brand-blue border border-blue-100 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {logsCount} Logs
+                        </span>
+                      )}
+                      {totalTasks > 0 && (
+                        <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100 flex items-center gap-1">
+                          <Layers className="w-3 h-3" />
+                          {tasksDone}/{totalTasks} Tasks
+                        </span>
+                      )}
+                      {projectOpenIssues > 0 ? (
+                        <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          {projectOpenIssues} Issues
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          No Blockers
+                        </span>
+                      )}
+                      {p.attachments && p.attachments.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 border border-gray-200 flex items-center gap-1">
+                          📎 {p.attachments.length} Files
+                        </span>
+                      )}
+                    </div>
+
                     {/* Timeline & Budget Info */}
-                    <div className="grid grid-cols-2 gap-2 text-xs border-y border-gray-100 py-3 mb-4">
+                    <div className="grid grid-cols-2 gap-2 text-xs border-y border-gray-100 py-3 mb-3">
                       <div className="flex items-center gap-1.5 text-gray-600">
                         <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
                         <div>
@@ -1118,51 +1311,59 @@ export default function AdminClientProjectsPage() {
                       )}
                     </div>
 
-                    {/* Brief Description */}
-                    {p.description && (
-                      <p className="text-xs text-gray-600 line-clamp-2 bg-gray-50/50 p-2.5 rounded-xl border border-gray-100 mb-3.5 font-sans">
-                        {p.description}
-                      </p>
-                    )}
-
-                    {/* Internal Notes */}
-                    {p.notes && (
-                      <div className="text-[11px] text-amber-900 bg-amber-50/50 p-2.5 rounded-xl border border-amber-200/50 mb-3.5 font-medium">
-                        <span className="font-bold block mb-0.5 text-amber-950">Confidential Note:</span>
-                        <span className="line-clamp-2">{p.notes}</span>
-                      </div>
-                    )}
-
-                    {/* Tags */}
-                    {p.tags && p.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {p.tags.map((t) => (
-                          <span
-                            key={t}
-                            className="text-[9px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-0.5 border border-gray-200"
+                    {/* Deployment URLs quick links */}
+                    {(p.liveUrl || p.stagingUrl || p.repoUrl) && (
+                      <div
+                        className="flex items-center gap-2 mb-3 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {p.liveUrl && (
+                          <a
+                            href={p.liveUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 bg-blue-50 text-brand-blue hover:bg-blue-100 rounded-md text-[10px] font-bold flex items-center gap-1 border border-blue-100"
+                            title="Open Live Website"
                           >
-                            <Tag className="w-2.5 h-2.5 text-gray-400" />
-                            {t}
-                          </span>
-                        ))}
+                            <Globe className="w-3 h-3" /> Live
+                          </a>
+                        )}
+                        {p.stagingUrl && (
+                          <a
+                            href={p.stagingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-md text-[10px] font-bold flex items-center gap-1 border border-purple-100"
+                            title="Open Staging/Test Environment"
+                          >
+                            <ExternalLink className="w-3 h-3" /> Staging
+                          </a>
+                        )}
+                        {p.repoUrl && (
+                          <a
+                            href={p.repoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md text-[10px] font-bold flex items-center gap-1 border border-gray-200"
+                            title="Open Git Code Repository"
+                          >
+                            <Code2 className="w-3 h-3" /> Git Repo
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>
 
                   {/* Card Actions Footer */}
-                  <div className="flex items-center justify-between mt-2 pt-3 border-t border-gray-100 flex-wrap gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${deadlineStatus.color}`}
-                      >
-                        {deadlineStatus.text}
-                      </span>
-                      {p.attachments && p.attachments.length > 0 && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-brand-blue border border-blue-100 flex items-center gap-1" title="Files in Project Vault">
-                          📎 {p.attachments.length} Files
-                        </span>
-                      )}
-                    </div>
+                  <div
+                    className="flex items-center justify-between mt-2 pt-3 border-t border-gray-100 flex-wrap gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${deadlineStatus.color}`}
+                    >
+                      {deadlineStatus.text}
+                    </span>
 
                     <div className="flex items-center gap-1">
                       {p.client && (
@@ -1181,9 +1382,9 @@ export default function AdminClientProjectsPage() {
                         </button>
                       )}
                       <button
-                        onClick={() => setQuickViewProject(p)}
+                        onClick={() => setWorkspaceProject(p)}
                         className="text-gray-400 hover:text-brand-blue p-1.5 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
-                        title="360° Quick View Project Intelligence"
+                        title="Open 360° Project Intelligence & Daily Work Logs"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
@@ -1213,114 +1414,26 @@ export default function AdminClientProjectsPage() {
         )}
       </div>
 
-      {/* ── 360° Project Intelligence Quick View Drawer Modal ─── */}
-      {quickViewProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto border border-gray-200">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-brand-blue/10 text-brand-blue rounded-2xl">
-                  <FolderOpen className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-extrabold font-heading text-gray-900">
-                      {quickViewProject.projectTitle}
-                    </h3>
-                    <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border ${STATUS_COLORS[quickViewProject.status]}`}>
-                      {STATUS_LABELS[quickViewProject.status]}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5 font-semibold">
-                    <User className="w-3.5 h-3.5 text-gray-400" />
-                    Client: <strong>{quickViewProject.clientName}</strong>
-                    {quickViewProject.client && (
-                      <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.2 rounded font-bold">
-                        Portal Account Linked
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setQuickViewProject(null)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Total Budget</p>
-                <p className="text-xl font-black text-gray-900 mt-1">{quickViewProject.budget || '₹ Custom'}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Current Progress</p>
-                <p className="text-xl font-black text-brand-blue mt-1">{quickViewProject.progress}%</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Assigned Lead</p>
-                <p className="text-base font-bold text-gray-800 mt-1 truncate">{quickViewProject.assignedTo || 'Unassigned'}</p>
-              </div>
-            </div>
-
-            {quickViewProject.description && (
-              <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200 space-y-1">
-                <p className="text-xs font-bold text-gray-700">Project Overview:</p>
-                <p className="text-xs text-gray-600 leading-relaxed">{quickViewProject.description}</p>
-              </div>
-            )}
-
-            {/* File Vault Assets */}
-            <div className="space-y-3">
-              <h4 className="font-bold text-sm text-gray-900 flex items-center gap-2">
-                <FileCheck className="w-4 h-4 text-brand-blue" />
-                Project Vault Files ({quickViewProject.attachments?.length || 0})
-              </h4>
-              {(!quickViewProject.attachments || quickViewProject.attachments.length === 0) ? (
-                <p className="text-xs text-gray-400 bg-gray-50 p-3 rounded-xl border border-gray-200 text-center">
-                  No files uploaded in project vault yet.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {quickViewProject.attachments.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl bg-white text-xs">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-gray-800 truncate">{item.fileName}</p>
-                        <p className="text-[10px] text-gray-400">{item.fileSize ? `${(item.fileSize / (1024 * 1024)).toFixed(2)} MB` : 'Secure File'}</p>
-                      </div>
-                      <a href={item.fileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-brand-blue hover:bg-blue-50 rounded-lg ml-2">
-                        <Download className="w-4 h-4" />
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  setEditing(quickViewProject)
-                  setQuickViewProject(null)
-                  window.scrollTo({ top: 0, behavior: 'smooth' })
-                }}
-                className="px-4 py-2 bg-brand-blue text-white text-xs font-bold rounded-xl hover:bg-blue-600 transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                Edit Full Project &amp; Milestones
-              </button>
-              <button
-                onClick={() => setQuickViewProject(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* ── 360° Project Intelligence Workspace Drawer ─────────── */}
+      {workspaceProject && (
+        <ProjectWorkspaceDrawer
+          project={workspaceProject}
+          onClose={() => setWorkspaceProject(null)}
+          onEditFull={(p) => {
+            setEditing(p)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          assignableTeam={assignableTeam}
+        />
       )}
+
+      {/* ── Executive Boss / Management Reporting Modal ─────────── */}
+      <BossReportModal
+        isOpen={showBossReport}
+        onClose={() => setShowBossReport(false)}
+        projects={projects}
+        clients={clients}
+      />
 
       {/* ── Confirmation Modals ──────────────────────────────────── */}
       {/* 1. Delete Project Modal */}

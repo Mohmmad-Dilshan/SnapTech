@@ -12,7 +12,7 @@ export const createAttachment = async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'No file provided.' })
     }
 
-    const { leadId, taskId, clientProjectId } = req.body
+    const { leadId, taskId, clientProjectId, category } = req.body
 
     if (!leadId && !taskId && !clientProjectId) {
       return res.status(400).json({
@@ -42,6 +42,7 @@ export const createAttachment = async (req, res, next) => {
         fileSize: req.file.size,
         publicId: result.public_id,
         uploadedByRole: req.admin?.role || 'ADMIN',
+        category: category || 'GENERAL',
         leadId: leadId || null,
         taskId: taskId || null,
         clientProjectId: clientProjectId || null,
