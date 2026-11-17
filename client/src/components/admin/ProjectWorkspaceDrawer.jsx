@@ -17,18 +17,13 @@ import {
   Check,
   Plus,
   Trash2,
-  Calendar,
   Clock,
   User,
-  DollarSign,
   Globe,
   ExternalLink,
-  Code2,
   Lock,
-  Tag,
   FolderOpen,
   FileText,
-  AlertTriangle,
   Bug,
   Sparkles,
   CheckCircle2,
@@ -36,9 +31,6 @@ import {
   Paperclip,
   Landmark,
   Calculator,
-  Send,
-  Loader2,
-  ShieldAlert,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { api } from '@/utils/api'
@@ -73,7 +65,7 @@ export default function ProjectWorkspaceDrawer({
   project,
   onClose,
   onEditFull,
-  assignableTeam = [],
+  assignableTeam: _assignableTeam = [],
 }) {
   const qc = useQueryClient()
   const toast = useToast()

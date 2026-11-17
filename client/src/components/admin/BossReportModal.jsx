@@ -7,30 +7,30 @@ import { useQuery } from '@tanstack/react-query'
 import {
   X,
   Printer,
-  Download,
-  Calendar,
   CheckCircle2,
   AlertTriangle,
   Clock,
   Briefcase,
   User,
-  Bug,
-  Sparkles,
   FileSpreadsheet,
   Building2,
   RefreshCw,
-  ExternalLink,
 } from 'lucide-react'
 import { api } from '@/utils/api'
+
+const getInitialStartDate = () => {
+  const d = new Date()
+  d.setDate(d.getDate() - 7)
+  return d.toISOString().split('T')[0]
+}
+const getInitialEndDate = () => new Date().toISOString().split('T')[0]
 
 export default function BossReportModal({ isOpen, onClose, projects = [], clients = [] }) {
   const [reportType, setReportType] = useState('DAILY') // DAILY | WEEKLY | CLIENT | PROJECT | CUSTOM
   const [selectedProjectId, setSelectedProjectId] = useState('')
   const [selectedClientId, setSelectedClientId] = useState('')
-  const [customStartDate, setCustomStartDate] = useState(
-    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  )
-  const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0])
+  const [customStartDate, setCustomStartDate] = useState(getInitialStartDate)
+  const [customEndDate, setCustomEndDate] = useState(getInitialEndDate)
 
   // Fetch compiled report from backend
   const { data: report, isLoading, refetch } = useQuery({

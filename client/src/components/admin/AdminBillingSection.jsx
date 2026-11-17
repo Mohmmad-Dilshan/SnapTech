@@ -3,7 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/utils/api'
-import { Landmark, Plus, Trash2, CheckCircle2, Calendar, FileText, X } from 'lucide-react'
+import { Landmark, Plus, Trash2, Calendar } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 

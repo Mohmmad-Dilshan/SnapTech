@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Eye,
   X,
-  Tag,
 } from 'lucide-react'
 import { api } from '@/utils/api'
 import ConfirmModal from './ConfirmModal'
@@ -32,7 +31,7 @@ export default function AttachmentSection({
   taskId,
   clientProjectId,
   onUploadSuccess,
-  theme = 'light',
+  theme: _theme = 'light',
 }) {
   const [uploading, setUploading] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('GENERAL')
