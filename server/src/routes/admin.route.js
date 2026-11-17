@@ -71,6 +71,18 @@ import {
   createClientProject,
   updateClientProject,
   deleteClientProject,
+  listDailyLogs,
+  createDailyLog,
+  deleteDailyLog,
+  listProjectIssues,
+  createProjectIssue,
+  updateProjectIssue,
+  deleteProjectIssue,
+  listProjectFeatures,
+  createProjectFeature,
+  updateProjectFeature,
+  deleteProjectFeature,
+  getManagementReport,
 } from '../controllers/clientProjects.controller.js'
 import { listTasks, createTask, updateTask, deleteTask } from '../controllers/tasks.controller.js'
 import { listNotes, createNote, updateNote, deleteNote } from '../controllers/notes.controller.js'
@@ -762,6 +774,26 @@ router.patch(
   updateClientProject
 )
 router.delete('/client-projects/:id', verifyToken, requireRole('SUPER_ADMIN'), deleteClientProject)
+
+// ── Daily Work Logs ────────────────────────────────────────────
+router.get('/client-projects/:id/daily-logs', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), listDailyLogs)
+router.post('/client-projects/:id/daily-logs', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), createDailyLog)
+router.delete('/daily-logs/:logId', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN'), deleteDailyLog)
+
+// ── Project Issues & Bugs ──────────────────────────────────────
+router.get('/client-projects/:id/issues', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), listProjectIssues)
+router.post('/client-projects/:id/issues', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), createProjectIssue)
+router.patch('/issues/:issueId', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), updateProjectIssue)
+router.delete('/issues/:issueId', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN'), deleteProjectIssue)
+
+// ── Project Features Pipeline ──────────────────────────────────
+router.get('/client-projects/:id/features', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), listProjectFeatures)
+router.post('/client-projects/:id/features', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), createProjectFeature)
+router.patch('/features/:featureId', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), updateProjectFeature)
+router.delete('/features/:featureId', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN'), deleteProjectFeature)
+
+// ── Boss / Management Reports ──────────────────────────────────
+router.get('/reports/management', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), getManagementReport)
 
 // ── Work Tasks ─────────────────────────────────────────────────
 router.get('/tasks', verifyToken, requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF'), listTasks)

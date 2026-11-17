@@ -3,7 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/utils/api'
-import { Landmark, Plus, Trash2, CheckCircle2, Calendar, FileText, X } from 'lucide-react'
+import { Landmark, Plus, Trash2, Calendar } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
@@ -16,21 +16,26 @@ const STATUS_BADGES = {
 const inputCls =
   'w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20'
 
-export default function AdminBillingSection({ projectId, currentRole }) {
+export default function AdminBillingSection({ projectId, clientProjectId, currentRole }) {
   const qc = useQueryClient()
   const [showAddForm, setShowAddForm] = useState(false)
+  const targetProjectId = projectId || clientProjectId
 
   // Fetch milestones
   const { data: milestones = [], isLoading } = useQuery({
-    queryKey: ['admin-project-billing', projectId],
-    queryFn: () => api.get(`/admin/client-projects/${projectId}/billing`).then((res) => res.data),
+    queryKey: ['admin-project-billing', targetProjectId],
+    queryFn: () =>
+      targetProjectId
+        ? api.get(`/admin/client-projects/${targetProjectId}/billing`).then((res) => res.data)
+        : Promise.resolve([]),
+    enabled: Boolean(targetProjectId),
   })
 
   // Create milestone mutation
   const createMutation = useMutation({
-    mutationFn: (data) => api.post(`/admin/client-projects/${projectId}/billing`, data),
+    mutationFn: (data) => api.post(`/admin/client-projects/${targetProjectId}/billing`, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-project-billing', projectId] })
+      qc.invalidateQueries({ queryKey: ['admin-project-billing', targetProjectId] })
       setShowAddForm(false)
       reset()
     },
@@ -40,7 +45,7 @@ export default function AdminBillingSection({ projectId, currentRole }) {
   const updateMutation = useMutation({
     mutationFn: ({ id, status }) => api.patch(`/admin/billing/${id}`, { status }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-project-billing', projectId] })
+      qc.invalidateQueries({ queryKey: ['admin-project-billing', targetProjectId] })
     },
   })
 
@@ -48,7 +53,7 @@ export default function AdminBillingSection({ projectId, currentRole }) {
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/admin/billing/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-project-billing', projectId] })
+      qc.invalidateQueries({ queryKey: ['admin-project-billing', targetProjectId] })
     },
   })
 

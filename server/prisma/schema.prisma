@@ -357,11 +357,20 @@ model ClientProject {
   budget            String?
   tags              String[]
   notes             String?
+  projectType       String?            @default("Website Development")
+  liveUrl           String?
+  stagingUrl        String?
+  repoUrl           String?
+  credentialsNotes  String?
+  health            String?            @default("ON_TRACK") // ON_TRACK | AT_RISK | DELAYED
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   tasks             WorkTask[]
   tickets           SupportTicket[]
   billingMilestones BillingMilestone[]
+  dailyLogs         DailyWorkLog[]
+  issues            ProjectIssue[]
+  features          ProjectFeature[]
   clientId          String?
   client            Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
   attachments       Attachment[]
@@ -410,6 +419,67 @@ model WorkTask {
   @@index([clientProjectId])
   @@index([assignedToAdminId])
   @@map("work_tasks")
+}
+
+model DailyWorkLog {
+  id                String         @id @default(cuid())
+  clientProjectId   String
+  clientProject     ClientProject  @relation(fields: [clientProjectId], references: [id], onDelete: Cascade)
+  date              DateTime       @default(now())
+  authorName        String
+  authorEmail       String?
+  workDone          String         // Detailed summary of work completed today
+  featuresAdded     String?
+  bugsFixed         String?
+  issuesEncountered String?        // Blockers or difficulties
+  pendingWork       String?
+  nextDayPlan       String?
+  timeSpentHours    Float?         @default(0)
+  notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([clientProjectId])
+  @@index([date])
+  @@map("daily_work_logs")
+}
+
+model ProjectIssue {
+  id                String         @id @default(cuid())
+  clientProjectId   String
+  clientProject     ClientProject  @relation(fields: [clientProjectId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?
+  issueType         String         @default("BUG") // BUG | TECHNICAL | REQUIREMENT_GAP | OTHER
+  severity          String         @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status            String         @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | BLOCKED
+  assignedTo        String?
+  resolutionDetails String?
+  resolvedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([clientProjectId])
+  @@index([status])
+  @@map("project_issues")
+}
+
+model ProjectFeature {
+  id                String         @id @default(cuid())
+  clientProjectId   String
+  clientProject     ClientProject  @relation(fields: [clientProjectId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?
+  status            String         @default("PLANNED") // PLANNED | IN_PROGRESS | COMPLETED | RELEASED
+  requestedBy       String?
+  assignedTo        String?
+  releasedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([clientProjectId])
+  @@index([status])
+  @@map("project_features")
 }
 
 model QuickNote {
@@ -615,6 +685,7 @@ model Attachment {
   fileSize        Int?
   publicId        String?
   uploadedByRole  String?        // 'ADMIN' | 'STAFF' | 'CLIENT'
+  category        String?        @default("GENERAL") // GENERAL | CONTRACT | DELIVERABLE | ASSET | INVOICE
   createdAt       DateTime       @default(now())
 
   // Scoped Relations

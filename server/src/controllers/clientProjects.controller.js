@@ -10,6 +10,10 @@ export const listClientProjects = async (req, res, next) => {
     const isStaff = req.admin?.role === 'STAFF'
     const whereClause = { deletedAt: null }
 
+    if (req.query.clientId) {
+      whereClause.clientId = req.query.clientId
+    }
+
     if (isStaff) {
       whereClause.OR = [
         { assignedToEmail: req.admin.email },
@@ -22,6 +26,18 @@ export const listClientProjects = async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
       include: {
         tasks: true,
+        dailyLogs: {
+          orderBy: { date: 'desc' },
+        },
+        issues: {
+          orderBy: { createdAt: 'desc' },
+        },
+        features: {
+          orderBy: { createdAt: 'desc' },
+        },
+        billingMilestones: {
+          orderBy: { createdAt: 'desc' },
+        },
         attachments: {
           orderBy: { createdAt: 'desc' },
         },
@@ -57,6 +73,12 @@ export const createClientProject = async (req, res, next) => {
       priority,
       progress,
       clientId,
+      projectType,
+      liveUrl,
+      stagingUrl,
+      repoUrl,
+      credentialsNotes,
+      health,
     } = req.body
     if (!clientName || !projectTitle || !startDate || !deadline) {
       return res.status(400).json({
@@ -95,10 +117,20 @@ export const createClientProject = async (req, res, next) => {
         priority: priority ?? 'MEDIUM',
         progress: progress ? parseInt(progress) : 0,
         clientId: finalClientId,
+        projectType: projectType || 'Website Development',
+        liveUrl: liveUrl || null,
+        stagingUrl: stagingUrl || null,
+        repoUrl: repoUrl || null,
+        credentialsNotes: credentialsNotes || null,
+        health: health || 'ON_TRACK',
       },
       include: {
         tasks: true,
         attachments: true,
+        dailyLogs: true,
+        issues: true,
+        features: true,
+        billingMilestones: true,
         client: {
           select: {
             id: true,
@@ -193,6 +225,9 @@ export const updateClientProject = async (req, res, next) => {
     delete updateData.attachments
     delete updateData.billingMilestones
     delete updateData.tickets
+    delete updateData.dailyLogs
+    delete updateData.issues
+    delete updateData.features
     delete updateData.client
     delete updateData.hasFeedback
     delete updateData.createdAt
@@ -225,6 +260,18 @@ export const updateClientProject = async (req, res, next) => {
       data: updateData,
       include: {
         tasks: true,
+        dailyLogs: {
+          orderBy: { date: 'desc' },
+        },
+        issues: {
+          orderBy: { createdAt: 'desc' },
+        },
+        features: {
+          orderBy: { createdAt: 'desc' },
+        },
+        billingMilestones: {
+          orderBy: { createdAt: 'desc' },
+        },
         attachments: {
           orderBy: { createdAt: 'desc' },
         },
@@ -321,6 +368,382 @@ export const deleteClientProject = async (req, res, next) => {
       )
     }
     res.json({ status: 'ok', message: 'Client project soft deleted.' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── Daily Work Logs CRUD ──────────────────────────────────────────
+
+export const listDailyLogs = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const logs = await prisma.dailyWorkLog.findMany({
+      where: { clientProjectId: id },
+      orderBy: { date: 'desc' },
+    })
+    res.json({ status: 'ok', data: logs })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const createDailyLog = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const {
+      workDone,
+      featuresAdded,
+      bugsFixed,
+      issuesEncountered,
+      pendingWork,
+      nextDayPlan,
+      timeSpentHours,
+      notes,
+      date,
+    } = req.body
+
+    if (!workDone || !workDone.trim()) {
+      return res.status(400).json({ status: 'error', message: 'Work done summary is required.' })
+    }
+
+    const authorName = req.admin?.name || req.admin?.email?.split('@')[0] || 'Team Lead'
+    const authorEmail = req.admin?.email || null
+
+    const log = await prisma.dailyWorkLog.create({
+      data: {
+        clientProjectId: id,
+        date: date ? new Date(date) : new Date(),
+        authorName,
+        authorEmail,
+        workDone: workDone.trim(),
+        featuresAdded: featuresAdded ? featuresAdded.trim() : null,
+        bugsFixed: bugsFixed ? bugsFixed.trim() : null,
+        issuesEncountered: issuesEncountered ? issuesEncountered.trim() : null,
+        pendingWork: pendingWork ? pendingWork.trim() : null,
+        nextDayPlan: nextDayPlan ? nextDayPlan.trim() : null,
+        timeSpentHours: timeSpentHours ? parseFloat(timeSpentHours) : 0,
+        notes: notes ? notes.trim() : null,
+      },
+    })
+
+    await logActivity(req, 'CREATE', 'DailyWorkLog', `Logged daily update for project ID: ${id}`)
+    res.status(201).json({ status: 'ok', data: log })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const deleteDailyLog = async (req, res, next) => {
+  try {
+    const { logId } = req.params
+    await prisma.dailyWorkLog.delete({ where: { id: logId } })
+    await logActivity(req, 'DELETE', 'DailyWorkLog', `Deleted daily work log ID: ${logId}`)
+    res.json({ status: 'ok', message: 'Daily work log removed.' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── Project Issues & Bugs CRUD ────────────────────────────────────
+
+export const listProjectIssues = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const issues = await prisma.projectIssue.findMany({
+      where: { clientProjectId: id },
+      orderBy: { createdAt: 'desc' },
+    })
+    res.json({ status: 'ok', data: issues })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const createProjectIssue = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { title, description, issueType, severity, status, assignedTo } = req.body
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ status: 'error', message: 'Issue title is required.' })
+    }
+
+    const issue = await prisma.projectIssue.create({
+      data: {
+        clientProjectId: id,
+        title: title.trim(),
+        description: description ? description.trim() : null,
+        issueType: issueType || 'BUG',
+        severity: severity || 'MEDIUM',
+        status: status || 'OPEN',
+        assignedTo: assignedTo || null,
+      },
+    })
+
+    await logActivity(req, 'CREATE', 'ProjectIssue', `Reported issue '${issue.title}'`)
+    res.status(201).json({ status: 'ok', data: issue })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const updateProjectIssue = async (req, res, next) => {
+  try {
+    const { issueId } = req.params
+    const updateData = { ...req.body }
+
+    if (updateData.status === 'RESOLVED') {
+      updateData.resolvedAt = new Date()
+    } else if (updateData.status && updateData.status !== 'RESOLVED') {
+      updateData.resolvedAt = null
+    }
+
+    const issue = await prisma.projectIssue.update({
+      where: { id: issueId },
+      data: updateData,
+    })
+
+    await logActivity(req, 'UPDATE', 'ProjectIssue', `Updated issue '${issue.title}' (Status: ${issue.status})`)
+    res.json({ status: 'ok', data: issue })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const deleteProjectIssue = async (req, res, next) => {
+  try {
+    const { issueId } = req.params
+    await prisma.projectIssue.delete({ where: { id: issueId } })
+    await logActivity(req, 'DELETE', 'ProjectIssue', `Deleted issue ID: ${issueId}`)
+    res.json({ status: 'ok', message: 'Project issue removed.' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── Project Features Pipeline CRUD ────────────────────────────────
+
+export const listProjectFeatures = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const features = await prisma.projectFeature.findMany({
+      where: { clientProjectId: id },
+      orderBy: { createdAt: 'desc' },
+    })
+    res.json({ status: 'ok', data: features })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const createProjectFeature = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { name, description, status, requestedBy, assignedTo } = req.body
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ status: 'error', message: 'Feature name is required.' })
+    }
+
+    const feature = await prisma.projectFeature.create({
+      data: {
+        clientProjectId: id,
+        name: name.trim(),
+        description: description ? description.trim() : null,
+        status: status || 'PLANNED',
+        requestedBy: requestedBy || null,
+        assignedTo: assignedTo || null,
+      },
+    })
+
+    await logActivity(req, 'CREATE', 'ProjectFeature', `Added feature '${feature.name}'`)
+    res.status(201).json({ status: 'ok', data: feature })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const updateProjectFeature = async (req, res, next) => {
+  try {
+    const { featureId } = req.params
+    const updateData = { ...req.body }
+
+    if (updateData.status === 'RELEASED') {
+      updateData.releasedAt = new Date()
+    } else if (updateData.status && updateData.status !== 'RELEASED') {
+      updateData.releasedAt = null
+    }
+
+    const feature = await prisma.projectFeature.update({
+      where: { id: featureId },
+      data: updateData,
+    })
+
+    await logActivity(req, 'UPDATE', 'ProjectFeature', `Updated feature '${feature.name}' (Status: ${feature.status})`)
+    res.json({ status: 'ok', data: feature })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const deleteProjectFeature = async (req, res, next) => {
+  try {
+    const { featureId } = req.params
+    await prisma.projectFeature.delete({ where: { id: featureId } })
+    await logActivity(req, 'DELETE', 'ProjectFeature', `Deleted feature ID: ${featureId}`)
+    res.json({ status: 'ok', message: 'Project feature removed.' })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── Boss / Management Reporting Aggregator ─────────────────────────
+
+export const getManagementReport = async (req, res, next) => {
+  try {
+    const { reportType = 'DAILY', startDate, endDate, clientProjectId, clientId } = req.query
+
+    const now = new Date()
+    let start = new Date()
+    let end = new Date()
+
+    if (reportType === 'DAILY') {
+      start = startDate ? new Date(startDate) : new Date(now.setHours(0, 0, 0, 0))
+      end = new Date(start)
+      end.setHours(23, 59, 59, 999)
+    } else if (reportType === 'WEEKLY') {
+      start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      start.setHours(0, 0, 0, 0)
+      end = new Date()
+    } else if (reportType === 'CUSTOM') {
+      start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      end = endDate ? new Date(endDate) : new Date()
+      end.setHours(23, 59, 59, 999)
+    } else {
+      start = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+      end = new Date()
+    }
+
+    const whereProjects = { deletedAt: null }
+    if (clientProjectId) whereProjects.id = clientProjectId
+    if (clientId) whereProjects.clientId = clientId
+
+    const projects = await prisma.clientProject.findMany({
+      where: whereProjects,
+      include: {
+        tasks: true,
+        issues: true,
+        features: true,
+        dailyLogs: {
+          where: {
+            date: {
+              gte: start,
+              lte: end,
+            },
+          },
+          orderBy: { date: 'desc' },
+        },
+        billingMilestones: true,
+        client: true,
+      },
+    })
+
+    let allLogs = []
+    let allIssues = []
+    let allFeatures = []
+    let allTasks = []
+    let totalHoursLogged = 0
+
+    projects.forEach((p) => {
+      if (p.dailyLogs) {
+        allLogs.push(
+          ...p.dailyLogs.map((l) => ({
+            ...l,
+            projectTitle: p.projectTitle,
+            clientName: p.clientName,
+          }))
+        )
+      }
+      if (p.issues) {
+        allIssues.push(
+          ...p.issues.map((i) => ({
+            ...i,
+            projectTitle: p.projectTitle,
+            clientName: p.clientName,
+          }))
+        )
+      }
+      if (p.features) {
+        allFeatures.push(
+          ...p.features.map((f) => ({
+            ...f,
+            projectTitle: p.projectTitle,
+            clientName: p.clientName,
+          }))
+        )
+      }
+      if (p.tasks) {
+        allTasks.push(
+          ...p.tasks.map((t) => ({
+            ...t,
+            projectTitle: p.projectTitle,
+            clientName: p.clientName,
+          }))
+        )
+      }
+    })
+
+    allLogs.sort((a, b) => new Date(b.date) - new Date(a.date))
+    totalHoursLogged = allLogs.reduce((sum, l) => sum + (Number(l.timeSpentHours) || 0), 0)
+
+    const openIssues = allIssues.filter((i) => i.status !== 'RESOLVED')
+    const resolvedIssues = allIssues.filter((i) => i.status === 'RESOLVED')
+    const completedTasks = allTasks.filter((t) => t.status === 'DONE')
+    const pendingTasks = allTasks.filter((t) => t.status !== 'DONE')
+
+    const report = {
+      reportType,
+      dateRange: {
+        start: start.toISOString(),
+        end: end.toISOString(),
+      },
+      metrics: {
+        totalProjects: projects.length,
+        activeProjects: projects.filter((p) => p.status === 'IN_PROGRESS' || p.status === 'REVIEW').length,
+        completedProjects: projects.filter((p) => p.status === 'COMPLETED').length,
+        totalHoursLogged: Math.round(totalHoursLogged * 10) / 10,
+        totalLogsCount: allLogs.length,
+        totalIssues: allIssues.length,
+        openIssuesCount: openIssues.length,
+        resolvedIssuesCount: resolvedIssues.length,
+        pendingTasksCount: pendingTasks.length,
+        completedTasksCount: completedTasks.length,
+      },
+      projects: projects.map((p) => ({
+        id: p.id,
+        projectTitle: p.projectTitle,
+        clientName: p.clientName,
+        projectType: p.projectType,
+        status: p.status,
+        health: p.health,
+        progress: p.progress,
+        deadline: p.deadline,
+        budget: p.budget,
+        liveUrl: p.liveUrl,
+        stagingUrl: p.stagingUrl,
+        repoUrl: p.repoUrl,
+        assignedTo: p.assignedTo,
+        openIssuesCount: (p.issues || []).filter((i) => i.status !== 'RESOLVED').length,
+        logsInPeriod: (p.dailyLogs || []).length,
+      })),
+      dailyLogs: allLogs,
+      openIssues,
+      resolvedIssues,
+      features: allFeatures,
+    }
+
+    res.json({ status: 'ok', data: report })
   } catch (err) {
     next(err)
   }
