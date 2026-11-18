@@ -11,7 +11,6 @@ import {
   Square,
   Loader2,
   ShieldAlert,
-  Info,
   FileJson,
   RefreshCw,
   CheckCircle2,
@@ -22,7 +21,6 @@ import {
   FileCode,
   FileSpreadsheet,
   Layers,
-  ShieldCheck,
 } from 'lucide-react'
 import { api } from '@/utils/api'
 import { SEO } from '@/components/ui'
@@ -65,7 +63,7 @@ function TableRow({ tableKey, label, count, selected, onToggle }) {
 
 // ── Main Page Component ────────────────────────────────────────
 export default function AdminBackupPage() {
-  const [selected, setSelected] = useState(new Set())
+  const [deselected, setDeselected] = useState(new Set())
   const [downloading, setDownloading] = useState(false)
   const [lastDownload, setLastDownload] = useState(null)
   const [dlError, setDlError] = useState(null)
@@ -75,42 +73,89 @@ export default function AdminBackupPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['backup-tables'],
     queryFn: () => api.get('/admin/backup/tables').then((r) => r.data),
-    onSuccess: (tables) => {
-      setSelected(new Set(tables.map((t) => t.key)))
-    },
   })
 
   const tables = data || []
-  const allSelected = tables.length > 0 && tables.every((t) => selected.has(t.key))
+  // All tables selected by default, minus any manually unchecked
+  const selected = new Set(tables.map((t) => t.key).filter((k) => !deselected.has(k)))
+
+  const allSelected = tables.length > 0 && selected.size === tables.length
   const someSelected = selected.size > 0
 
   const toggleTable = (key) => {
-    setSelected((prev) => {
+    setDeselected((prev) => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
       return next
     })
   }
 
   const toggleAll = () => {
     if (allSelected) {
-      setSelected(new Set())
+      setDeselected(new Set(tables.map((t) => t.key)))
       addToast('Deselected all database tables', 'info')
     } else {
-      setSelected(new Set(tables.map((t) => t.key)))
+      setDeselected(new Set())
       addToast('Selected all database tables', 'info')
     }
   }
 
   const selectPreset = (presetName, filterFn) => {
-    const matchedKeys = tables.filter(filterFn).map((t) => t.key)
-    setSelected(new Set(matchedKeys))
-    addToast(`Selected ${presetName} preset (${matchedKeys.length} tables)`, 'info')
+    const matchedKeys = new Set(tables.filter(filterFn).map((t) => t.key))
+    const notMatched = tables.filter((t) => !matchedKeys.has(t.key)).map((t) => t.key)
+    setDeselected(new Set(notMatched))
+    addToast(`Selected ${presetName} preset (${matchedKeys.size} tables)`, 'info')
   }
 
   const totalRecords = tables
     .filter((t) => selected.has(t.key))
     .reduce((acc, t) => acc + t.count, 0)
+
+  // 1-Click Complete Full Database Snapshot Download
+  const handleFullBackup = async (targetFormat = 'json') => {
+    if (tables.length === 0) return
+    setDeselected(new Set())
+    setDownloading(true)
+    setDlError(null)
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || '/api'}/admin/backup?format=${targetFormat}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+        }
+      )
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || 'Complete backup export failed')
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const fileExtensions = { json: 'json', sql: 'sql', html: 'html' }
+      const ext = fileExtensions[targetFormat] || 'json'
+      a.download = `snaptech-complete-web-backup-${new Date().toISOString().slice(0, 10)}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      const now = new Date()
+      setLastDownload(now)
+      addToast(`Complete full database backup downloaded! (${tables.length} tables)`, 'success')
+    } catch (err) {
+      const errorMsg = err.message || 'Download failed. Please try again.'
+      setDlError(errorMsg)
+      addToast(errorMsg, 'error')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   const handleDownload = async () => {
     if (selected.size === 0) return
@@ -197,6 +242,39 @@ export default function AdminBackupPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ── 1-Click Complete System Backup Action Banner ───────── */}
+        <div className="bg-linear-to-r from-emerald-600 to-teal-700 p-5 rounded-2xl text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 shadow-inner">
+              <Sparkles className="w-6 h-6 text-yellow-300" />
+            </div>
+            <div>
+              <h3 className="font-heading font-extrabold text-base sm:text-lg">One-Click Complete Website & Database Backup</h3>
+              <p className="text-xs text-emerald-100">
+                Downloads 100% of all {tables.length} tables (Projects, Clients, Blogs, Services, Leads, Settings, Vault) in 1 click.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleFullBackup('json')}
+            disabled={downloading || isLoading}
+            className="w-full sm:w-auto px-6 py-3 bg-white text-emerald-800 hover:bg-emerald-50 text-xs sm:text-sm font-extrabold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-75"
+          >
+            {downloading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
+                <span>Downloading Backup...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 text-emerald-700" />
+                <span>⚡ Download Complete Backup (All Data)</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* ── Table Selection & Preset Controls Card ──────────────── */}

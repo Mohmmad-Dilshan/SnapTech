@@ -3201,6 +3201,23 @@ mockPrisma.emailMessage = {
   },
 }
 
+mockPrisma.blogComment = {
+  findMany: async () => [],
+  count: async () => 0,
+}
+mockPrisma.pricingPackage = {
+  findMany: async () => [],
+  count: async () => 0,
+}
+mockPrisma.supportTicket = {
+  findMany: async () => [],
+  count: async () => 0,
+}
+mockPrisma.ticketMessage = {
+  findMany: async () => [],
+  count: async () => 0,
+}
+
 // ── Smart Connection Resolver ───────────────────────────────
 let activeClient = realPrisma
 

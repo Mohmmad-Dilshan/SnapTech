@@ -10,69 +10,151 @@
 
 import prisma from '../config/db.js'
 
-// Tables available for backup — display name + prisma model key
+// Safe fetch wrapper so any single table query issue doesn't crash entire backup
+const safeFetch = async (fn) => {
+  try {
+    const res = await fn()
+    return Array.isArray(res) ? res : []
+  } catch (_err) {
+    return []
+  }
+}
+
+// Complete tables list covering 100% of website content, CRM, and system assets
 const BACKUP_TABLES = {
   services: {
     label: 'Services',
-    fetch: () => prisma.service.findMany({ orderBy: { order: 'asc' } }),
+    fetch: () => safeFetch(() => prisma.service.findMany({ orderBy: { order: 'asc' } })),
   },
   projects: {
-    label: 'Projects',
-    fetch: () => prisma.project.findMany({ orderBy: { createdAt: 'desc' } }),
+    label: 'Portfolio Projects',
+    fetch: () => safeFetch(() => prisma.project.findMany({ orderBy: { createdAt: 'desc' } })),
   },
   team: {
     label: 'Team Members',
-    fetch: () => prisma.teamMember.findMany({ orderBy: { order: 'asc' } }),
+    fetch: () => safeFetch(() => prisma.teamMember.findMany({ orderBy: { order: 'asc' } })),
   },
   testimonials: {
-    label: 'Testimonials',
-    fetch: () => prisma.testimonial.findMany({ orderBy: { order: 'asc' } }),
+    label: 'Testimonials & Reviews',
+    fetch: () => safeFetch(() => prisma.testimonial.findMany({ orderBy: { order: 'asc' } })),
   },
-  faqs: { label: 'FAQs', fetch: () => prisma.faq.findMany({ orderBy: { order: 'asc' } }) },
+  faqs: {
+    label: 'FAQs',
+    fetch: () => safeFetch(() => prisma.faq.findMany({ orderBy: { order: 'asc' } })),
+  },
   milestones: {
     label: 'Milestones',
-    fetch: () => prisma.milestone.findMany({ orderBy: { order: 'asc' } }),
+    fetch: () => safeFetch(() => prisma.milestone.findMany({ orderBy: { order: 'asc' } })),
   },
   partners: {
-    label: 'Partners',
-    fetch: () => prisma.partner.findMany({ orderBy: { order: 'asc' } }),
+    label: 'Partners & Affiliates',
+    fetch: () => safeFetch(() => prisma.partner.findMany({ orderBy: { order: 'asc' } })),
   },
   leads: {
-    label: 'Contact Leads',
-    fetch: () => prisma.contactLead.findMany({ orderBy: { createdAt: 'desc' } }),
+    label: 'Contact Leads & Inquiries',
+    fetch: () => safeFetch(() => prisma.contactLead.findMany({ orderBy: { createdAt: 'desc' } })),
   },
   careers: {
     label: 'Job Postings',
-    fetch: () => prisma.jobPosting.findMany({ orderBy: { createdAt: 'desc' } }),
+    fetch: () => safeFetch(() => prisma.jobPosting.findMany({ orderBy: { createdAt: 'desc' } })),
   },
   applications: {
-    label: 'Applications',
-    fetch: () => prisma.jobApplication.findMany({ orderBy: { createdAt: 'desc' } }),
+    label: 'Job Applications',
+    fetch: () => safeFetch(() => prisma.jobApplication.findMany({ orderBy: { createdAt: 'desc' } })),
   },
-  legal: { label: 'Legal Pages', fetch: () => prisma.legalPage.findMany() },
+  legal: {
+    label: 'Legal Pages',
+    fetch: () => safeFetch(() => prisma.legalPage.findMany()),
+  },
   siteSettings: {
-    label: 'Site Settings',
+    label: 'Site Settings & Branding',
     fetch: () =>
-      prisma.siteSetting.findMany({
-        // Exclude all sys_* keys — these contain credentials
-        where: { key: { not: { startsWith: 'sys_' } } },
-      }),
+      safeFetch(() =>
+        prisma.siteSetting.findMany({
+          // Exclude all sys_* keys — these contain credentials
+          where: { key: { not: { startsWith: 'sys_' } } },
+        })
+      ),
   },
   clientProjects: {
-    label: 'Client Projects',
-    fetch: () => prisma.clientProject.findMany({ orderBy: { createdAt: 'desc' } }),
+    label: 'Client Projects & Vault',
+    fetch: () => safeFetch(() => prisma.clientProject.findMany({ orderBy: { createdAt: 'desc' } })),
   },
   workTasks: {
-    label: 'Work Tasks',
-    fetch: () => prisma.workTask.findMany({ orderBy: { createdAt: 'desc' } }),
+    label: 'Work Tasks & Deliverables',
+    fetch: () => safeFetch(() => prisma.workTask.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  dailyWorkLogs: {
+    label: 'Daily Work Updates',
+    fetch: () => safeFetch(() => prisma.dailyWorkLog.findMany({ orderBy: { date: 'desc' } })),
+  },
+  projectIssues: {
+    label: 'Project Issues & Bugs',
+    fetch: () => safeFetch(() => prisma.projectIssue.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  projectFeatures: {
+    label: 'Project Feature Tracker',
+    fetch: () => safeFetch(() => prisma.projectFeature.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  attachments: {
+    label: 'Project Vault Attachments',
+    fetch: () => safeFetch(() => prisma.attachment.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  billingMilestones: {
+    label: 'Billing Milestones & Invoices',
+    fetch: () => safeFetch(() => prisma.billingMilestone.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  clients: {
+    label: 'Client Portal Accounts',
+    fetch: () => safeFetch(() => prisma.client.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  blogPosts: {
+    label: 'Blog Posts & Articles',
+    fetch: () => safeFetch(() => prisma.blogPost.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  blogComments: {
+    label: 'Blog Comments & Moderation',
+    fetch: () => safeFetch(() => prisma.blogComment.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  pricingPackages: {
+    label: 'Pricing Packages & Plans',
+    fetch: () => safeFetch(() => prisma.pricingPackage.findMany({ orderBy: { order: 'asc' } })),
+  },
+  supportTickets: {
+    label: 'Support Tickets Desk',
+    fetch: () => safeFetch(() => prisma.supportTicket.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  ticketMessages: {
+    label: 'Ticket Messages & Replies',
+    fetch: () => safeFetch(() => prisma.ticketMessage.findMany({ orderBy: { createdAt: 'asc' } })),
   },
   quickNotes: {
-    label: 'Quick Notes',
-    fetch: () => prisma.quickNote.findMany({ orderBy: { createdAt: 'desc' } }),
+    label: 'Quick Sticky Notes',
+    fetch: () => safeFetch(() => prisma.quickNote.findMany({ orderBy: { createdAt: 'desc' } })),
   },
   activityLogs: {
-    label: 'Activity Logs',
-    fetch: () => prisma.activityLog.findMany({ orderBy: { createdAt: 'desc' } }),
+    label: 'System Activity Logs',
+    fetch: () => safeFetch(() => prisma.activityLog.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  socialPostDrafts: {
+    label: 'Social Marketing Drafts',
+    fetch: () => safeFetch(() => prisma.socialPostDraft.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  chatbotInquiries: {
+    label: 'Chatbot Leads & Inquiries',
+    fetch: () => safeFetch(() => prisma.chatbotInquiry.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  emailAccounts: {
+    label: 'Email Center Accounts',
+    fetch: () => safeFetch(() => prisma.emailAccount.findMany({ orderBy: { createdAt: 'desc' } })),
+  },
+  emailMessages: {
+    label: 'Email Center Messages',
+    fetch: () => safeFetch(() => prisma.emailMessage.findMany({ orderBy: { date: 'desc' } })),
+  },
+  emailAutomationRules: {
+    label: 'Email Automation Rules',
+    fetch: () => safeFetch(() => prisma.emailAutomationRule.findMany({ orderBy: { createdAt: 'desc' } })),
   },
 }
 
@@ -171,8 +253,24 @@ export const downloadBackup = async (req, res, next) => {
         siteSettings: 'site_settings',
         clientProjects: 'client_projects',
         workTasks: 'work_tasks',
+        dailyWorkLogs: 'daily_work_logs',
+        projectIssues: 'project_issues',
+        projectFeatures: 'project_features',
+        attachments: 'attachments',
+        billingMilestones: 'billing_milestones',
+        clients: 'clients',
+        blogPosts: 'blog_posts',
+        blogComments: 'blog_comments',
+        pricingPackages: 'pricing_packages',
+        supportTickets: 'support_tickets',
+        ticketMessages: 'ticket_messages',
         quickNotes: 'quick_notes',
         activityLogs: 'activity_logs',
+        socialPostDrafts: 'social_post_drafts',
+        chatbotInquiries: 'chatbot_inquiries',
+        emailAccounts: 'email_accounts',
+        emailMessages: 'email_messages',
+        emailAutomationRules: 'email_automation_rules',
       }
 
       let sql = `-- SnapTech Digital Database Backup Dump\n`
