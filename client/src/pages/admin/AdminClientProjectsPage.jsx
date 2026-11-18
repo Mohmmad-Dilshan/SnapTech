@@ -52,7 +52,7 @@ const STAGE_MAP = DEV_STAGES.reduce((acc, s) => {
   return acc
 }, {})
 
-// ── Project Types ───────────────────────────────────────────────
+// ── Project Types (Suggestions & Formatter) ─────────────────────
 const PROJECT_TYPES = [
   { id: 'FULL_STACK', label: 'Full-Stack Web Application' },
   { id: 'MOBILE_APP', label: 'Android & iOS Mobile App' },
@@ -62,6 +62,27 @@ const PROJECT_TYPES = [
   { id: 'API_BACKEND', label: 'REST API & Cloud Services' },
   { id: 'CUSTOM', label: 'Custom Software Solution' },
 ]
+
+const COMMON_PROJECT_TYPES = [
+  'Full-Stack Web Application',
+  'Android & iOS Mobile App',
+  'E-Commerce Platform',
+  'Corporate Website',
+  'Admin Panel / Internal CRM',
+  'School / College ERP',
+  'Hospital & Clinic Software',
+  'Billing & Invoicing System',
+  'REST API & Cloud Services',
+  'Landing Page & Funnel',
+  'Custom Software Solution',
+]
+
+const formatProjectType = (val) => {
+  if (!val) return 'Custom Software'
+  const match = PROJECT_TYPES.find((t) => t.id === val || t.label.toLowerCase() === val.toLowerCase())
+  if (match) return match.label
+  return val
+}
 
 // ── Lifecycle & Health Constants ────────────────────────────────
 const STATUSES = ['PLANNING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'ON_HOLD']
@@ -109,6 +130,22 @@ const PAYMENT_STATUS_OPTIONS = [
   { id: 'FULLY_PAID', label: '✅ Fully Paid' },
 ]
 
+const COMMON_PAYMENT_STATUSES = [
+  '💰 Advance Received',
+  '⏳ Payment Pending',
+  '⚡ Partially Paid (50%)',
+  '✅ Fully Paid',
+  '📑 Milestone Based',
+  '🔄 Monthly Retainer',
+]
+
+const formatPaymentStatus = (val) => {
+  if (!val) return 'Pending'
+  const match = PAYMENT_STATUS_OPTIONS.find((p) => p.id === val)
+  if (match) return match.label
+  return val
+}
+
 const inputCls =
   'w-full px-3.5 py-2.5 text-xs sm:text-sm border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all font-sans'
 
@@ -136,7 +173,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           startDate: formatDateForInput(initial.startDate),
           deadline: formatDateForInput(initial.deadline),
           tags: Array.isArray(initial.tags) ? initial.tags.join(', ') : initial.tags || '',
-          projectType: initial.projectType || 'FULL_STACK',
+          projectType: formatProjectType(initial.projectType) || 'Full-Stack Web Application',
           devStage: initial.devStage || 'PLANNING',
           health: initial.health || 'ON_TRACK',
           status: initial.status || 'PLANNING',
@@ -145,7 +182,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           clientContact: initial.clientContact || '',
           assignedTo: initial.assignedTo || '',
           budget: initial.budget || '',
-          paymentStatus: initial.paymentStatus || 'PENDING',
+          paymentStatus: formatPaymentStatus(initial.paymentStatus) || 'Advance Received',
           paymentReceived: initial.paymentReceived || '',
           paymentPending: initial.paymentPending || '',
           paymentNotes: initial.paymentNotes || '',
@@ -160,7 +197,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           projectTitle: '',
           clientName: '',
           clientContact: '',
-          projectType: 'FULL_STACK',
+          projectType: 'Full-Stack Web Application',
           devStage: 'PLANNING',
           health: 'ON_TRACK',
           status: 'IN_PROGRESS',
@@ -170,7 +207,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           deadline: '',
           assignedTo: '',
           budget: '',
-          paymentStatus: 'ADVANCE_PAID',
+          paymentStatus: 'Advance Received',
           paymentReceived: '',
           paymentPending: '',
           paymentNotes: '',
@@ -186,6 +223,8 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
 
   const watchedProgress = watch('progress') || 0
   const watchedDevStage = watch('devStage') || 'PLANNING'
+  const watchedPriority = watch('priority') || 'MEDIUM'
+  const watchedHealth = watch('health') || 'ON_TRACK'
 
   const appendTeamMember = (memberName) => {
     const current = getValues('assignedTo') || ''
@@ -196,12 +235,21 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
     }
   }
 
+  const appendTag = (techName) => {
+    const current = getValues('tags') || ''
+    if (!current) {
+      setValue('tags', techName)
+    } else if (!current.toLowerCase().includes(techName.toLowerCase())) {
+      setValue('tags', `${current}, ${techName}`)
+    }
+  }
+
   const onSubmit = (data) => {
     const payload = {
       projectTitle: data.projectTitle,
       clientName: data.clientName,
       clientContact: data.clientContact || '',
-      projectType: data.projectType || 'FULL_STACK',
+      projectType: (data.projectType || 'Full-Stack Web Application').trim(),
       devStage: data.devStage || 'PLANNING',
       health: data.health || 'ON_TRACK',
       status: data.status || 'IN_PROGRESS',
@@ -211,7 +259,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
       deadline: data.deadline,
       assignedTo: data.assignedTo || '',
       budget: data.budget || '',
-      paymentStatus: data.paymentStatus || 'PENDING',
+      paymentStatus: (data.paymentStatus || 'Pending').trim(),
       paymentReceived: data.paymentReceived || '',
       paymentPending: data.paymentPending || '',
       paymentNotes: data.paymentNotes || '',
@@ -261,16 +309,37 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Project Type
+            <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">
+              <span>Project Type</span>
+              <span className="text-[10px] text-brand-blue font-semibold">Type custom or select</span>
             </label>
-            <select {...register('projectType')} className={inputCls}>
-              {PROJECT_TYPES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
+            <input
+              list="project-type-suggestions"
+              {...register('projectType')}
+              className={inputCls}
+              placeholder="e.g. Grocery App, School ERP, E-Commerce..."
+            />
+            <datalist id="project-type-suggestions">
+              {COMMON_PROJECT_TYPES.map((pt) => (
+                <option key={pt} value={pt} />
               ))}
-            </select>
+            </datalist>
+            {/* Quick Presets */}
+            <div className="flex items-center gap-1 flex-wrap pt-1.5">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                Presets:
+              </span>
+              {['Web App', 'Mobile App', 'E-Commerce', 'CRM / ERP', 'Website', 'Custom'].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setValue('projectType', preset)}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-white hover:bg-brand-blue/10 text-gray-600 hover:text-brand-blue border border-gray-200 transition-all cursor-pointer shadow-2xs"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -299,13 +368,25 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
               Priority
             </label>
-            <select {...register('priority')} className={inputCls}>
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-4 gap-1">
+              {PRIORITIES.map((p) => {
+                const isSelected = watchedPriority === p
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setValue('priority', p)}
+                    className={`py-2 px-1 text-center rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      isSelected
+                        ? `${PRIORITY_COLORS[p]} ring-2 ring-brand-blue/30 shadow-xs font-extrabold`
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -400,11 +481,29 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
               Project Health
             </label>
-            <select {...register('health')} className={inputCls}>
-              <option value="ON_TRACK">🟢 On Track</option>
-              <option value="AT_RISK">🟡 At Risk</option>
-              <option value="DELAYED">🔴 Delayed</option>
-            </select>
+            <div className="grid grid-cols-3 gap-1">
+              {[
+                { id: 'ON_TRACK', label: '🟢 On Track', color: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
+                { id: 'AT_RISK', label: '🟡 At Risk', color: 'bg-amber-50 text-amber-800 border-amber-300' },
+                { id: 'DELAYED', label: '🔴 Delayed', color: 'bg-rose-50 text-rose-800 border-rose-300' },
+              ].map((h) => {
+                const isSelected = watchedHealth === h.id
+                return (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => setValue('health', h.id)}
+                    className={`py-2 px-1 text-center rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                      isSelected
+                        ? `${h.color} ring-2 ring-brand-blue/30 shadow-xs font-extrabold`
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    {h.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           <div>
@@ -531,16 +630,34 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Payment Status
+            <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">
+              <span>Payment Status</span>
+              <span className="text-[10px] text-blue-600 font-semibold">Custom or pick</span>
             </label>
-            <select {...register('paymentStatus')} className={inputCls}>
-              {PAYMENT_STATUS_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
+            <input
+              list="payment-status-suggestions"
+              {...register('paymentStatus')}
+              className={inputCls}
+              placeholder="e.g. Advance Received, Fully Paid, 50% Token..."
+            />
+            <datalist id="payment-status-suggestions">
+              {COMMON_PAYMENT_STATUSES.map((ps) => (
+                <option key={ps} value={ps} />
               ))}
-            </select>
+            </datalist>
+            {/* Quick Status Pills */}
+            <div className="flex items-center gap-1 flex-wrap pt-1.5">
+              {['Advance Recv', 'Pending', 'Partially Paid', 'Fully Paid', 'Milestone'].map((statusChip) => (
+                <button
+                  key={statusChip}
+                  type="button"
+                  onClick={() => setValue('paymentStatus', statusChip)}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white hover:bg-blue-50 text-gray-600 hover:text-blue-700 border border-gray-200 transition-all cursor-pointer shadow-2xs"
+                >
+                  {statusChip}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -614,14 +731,31 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
         </div>
 
         <div>
-          <label className="text-xs font-bold text-gray-700 block mb-1.5">
-            Tech Stack Tags (Comma Separated)
+          <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">
+            <span>Tech Stack Tags (Comma Separated)</span>
+            <span className="text-[10px] text-purple-600 font-semibold">Type custom or click pills</span>
           </label>
           <input
             {...register('tags')}
             className={inputCls}
             placeholder="React, Next.js, Node.js, PostgreSQL, Tailwind"
           />
+          {/* Quick Tech Stack Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap pt-1.5">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              Quick Tech:
+            </span>
+            {['React', 'Next.js', 'Node.js', 'Flutter', 'PostgreSQL', 'MongoDB', 'TailwindCSS', 'Python', 'AWS'].map((tech) => (
+              <button
+                key={tech}
+                type="button"
+                onClick={() => appendTag(tech)}
+                className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white hover:bg-purple-50 text-gray-600 hover:text-purple-700 border border-gray-200 transition-all cursor-pointer shadow-2xs"
+              >
+                + {tech}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -666,7 +800,7 @@ function PrintSingleProjectModal({ project, onClose }) {
   if (!project) return null
 
   const stageObj = STAGE_MAP[project.devStage] || DEV_STAGES[0]
-  const typeObj = PROJECT_TYPES.find((t) => t.id === project.projectType) || { label: project.projectType || 'Software' }
+  const typeLabel = formatProjectType(project.projectType)
 
   const handlePrint = () => {
     window.print()
@@ -733,7 +867,7 @@ function PrintSingleProjectModal({ project, onClose }) {
               </div>
               <div className="text-right shrink-0">
                 <span className="text-xs font-bold px-2 py-0.5 rounded border bg-white text-gray-800">
-                  {typeObj.label}
+                  {typeLabel}
                 </span>
               </div>
             </div>
@@ -970,8 +1104,11 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                   return (
                     <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
                       <td className="p-2.5 font-bold text-gray-400">{idx + 1}</td>
-                      <td className="p-2.5 font-bold text-gray-900 max-w-[180px]">
-                        {p.projectTitle}
+                      <td className="p-2.5 font-bold text-gray-900 max-w-[190px]">
+                        <div>{p.projectTitle}</div>
+                        <span className="text-[10px] text-gray-500 font-normal block mt-0.5">
+                          {formatProjectType(p.projectType)}
+                        </span>
                       </td>
                       <td className="p-2.5 text-gray-700 font-medium">{p.clientName}</td>
                       <td className="p-2.5">
@@ -989,7 +1126,7 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                       <td className="p-2.5 whitespace-nowrap">
                         <span className="font-bold text-gray-900 block">{p.budget || '—'}</span>
                         <span className="text-[10px] text-gray-500">
-                          {p.paymentReceived ? `Rec: ${p.paymentReceived}` : p.paymentStatus}
+                          {p.paymentReceived ? `Rec: ${p.paymentReceived}` : formatPaymentStatus(p.paymentStatus)}
                         </span>
                       </td>
                       <td className="p-2.5 text-[11px] text-gray-700 max-w-[220px]">
@@ -1030,6 +1167,7 @@ export default function AdminClientProjectsPage() {
   const [stageFilter, setStageFilter] = useState('ALL')
   const [priorityFilter, setPriorityFilter] = useState('ALL')
   const [healthFilter, setHealthFilter] = useState('ALL')
+  const [typeFilter, setTypeFilter] = useState('ALL')
   const [quickViewProject, setQuickViewProject] = useState(null)
   const [printSingleProject, setPrintSingleProject] = useState(null)
   const [showMasterReport, setShowMasterReport] = useState(false)
@@ -1110,6 +1248,15 @@ export default function AdminClientProjectsPage() {
     return { total, active, review, completed, overdue }
   }, [projects])
 
+  // Dynamic list of unique project types for filter dropdown
+  const availableTypes = useMemo(() => {
+    const set = new Set()
+    projects.forEach((p) => {
+      if (p.projectType) set.add(formatProjectType(p.projectType))
+    })
+    return Array.from(set).sort()
+  }, [projects])
+
   // Filtered projects
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
@@ -1119,6 +1266,8 @@ export default function AdminClientProjectsPage() {
         p.projectTitle?.toLowerCase().includes(q) ||
         p.clientName?.toLowerCase().includes(q) ||
         p.assignedTo?.toLowerCase().includes(q) ||
+        p.projectType?.toLowerCase().includes(q) ||
+        p.paymentStatus?.toLowerCase().includes(q) ||
         p.scopeFeatures?.toLowerCase().includes(q) ||
         p.changeRequests?.toLowerCase().includes(q) ||
         p.currentStatusNote?.toLowerCase().includes(q) ||
@@ -1129,10 +1278,11 @@ export default function AdminClientProjectsPage() {
       const matchesStage = stageFilter === 'ALL' || p.devStage === stageFilter
       const matchesPriority = priorityFilter === 'ALL' || p.priority === priorityFilter
       const matchesHealth = healthFilter === 'ALL' || p.health === healthFilter
+      const matchesType = typeFilter === 'ALL' || formatProjectType(p.projectType) === typeFilter
 
-      return matchesSearch && matchesStatus && matchesStage && matchesPriority && matchesHealth
+      return matchesSearch && matchesStatus && matchesStage && matchesPriority && matchesHealth && matchesType
     })
-  }, [projects, searchTerm, statusFilter, stageFilter, priorityFilter, healthFilter])
+  }, [projects, searchTerm, statusFilter, stageFilter, priorityFilter, healthFilter, typeFilter])
 
   // Deadline calculation
   const calculateDaysLeft = (deadlineStr) => {
@@ -1196,7 +1346,7 @@ export default function AdminClientProjectsPage() {
 
     const rows = filteredProjects.map((p) => {
       const stage = STAGE_MAP[p.devStage]?.label || p.devStage || ''
-      const type = PROJECT_TYPES.find((t) => t.id === p.projectType)?.label || p.projectType || ''
+      const type = formatProjectType(p.projectType)
       return [
         escapeCsv(p.projectTitle),
         escapeCsv(p.clientName),
@@ -1211,7 +1361,7 @@ export default function AdminClientProjectsPage() {
         escapeCsv(p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : ''),
         escapeCsv(p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : ''),
         escapeCsv(p.budget),
-        escapeCsv(p.paymentStatus),
+        escapeCsv(formatPaymentStatus(p.paymentStatus)),
         escapeCsv(p.paymentReceived),
         escapeCsv(p.paymentPending),
         escapeCsv(p.paymentNotes),
@@ -1460,7 +1610,23 @@ export default function AdminClientProjectsPage() {
                 <option value="DELAYED">🔴 Delayed</option>
               </select>
 
-              {(searchTerm || statusFilter !== 'ALL' || stageFilter !== 'ALL' || healthFilter !== 'ALL') && (
+              {/* Dynamic Project Type Filter */}
+              {availableTypes.length > 0 && (
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="px-3 py-2 text-xs font-semibold border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none"
+                >
+                  <option value="ALL">All Project Types ({availableTypes.length})</option>
+                  {availableTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {(searchTerm || statusFilter !== 'ALL' || stageFilter !== 'ALL' || healthFilter !== 'ALL' || typeFilter !== 'ALL') && (
                 <button
                   onClick={() => {
                     setSearchTerm('')
@@ -1468,6 +1634,7 @@ export default function AdminClientProjectsPage() {
                     setStageFilter('ALL')
                     setHealthFilter('ALL')
                     setPriorityFilter('ALL')
+                    setTypeFilter('ALL')
                   }}
                   className="px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-100 font-semibold transition-all cursor-pointer"
                 >
@@ -1499,7 +1666,7 @@ export default function AdminClientProjectsPage() {
             {filteredProjects.map((p) => {
               const deadlineStatus = calculateDaysLeft(p.deadline)
               const stage = STAGE_MAP[p.devStage] || DEV_STAGES[0]
-              const type = PROJECT_TYPES.find((t) => t.id === p.projectType) || { label: p.projectType || 'Software' }
+              const typeLabel = formatProjectType(p.projectType)
 
               return (
                 <div
@@ -1545,7 +1712,7 @@ export default function AdminClientProjectsPage() {
                     {/* Development Stage Badge & Project Type */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] font-semibold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-200">
-                        {type.label}
+                        {typeLabel}
                       </span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 ${stage.color}`}>
                         <span>{stage.icon}</span>
@@ -1594,15 +1761,20 @@ export default function AdminClientProjectsPage() {
                     </div>
 
                     {/* Commercials & Financials Row */}
-                    {(p.budget || p.paymentReceived || p.paymentPending) && (
+                    {(p.budget || p.paymentReceived || p.paymentPending || p.paymentStatus) && (
                       <div className="bg-emerald-50/40 p-2 rounded-xl border border-emerald-100 flex items-center justify-between text-xs flex-wrap gap-1">
                         <div className="flex items-center gap-1 text-emerald-800 font-bold">
                           <DollarSign className="w-3 h-3" />
                           <span>{p.budget || 'Custom'}</span>
                         </div>
-                        <div className="text-[10px] text-gray-600">
-                          {p.paymentReceived && <span className="text-emerald-700 font-bold mr-1.5">Rec: {p.paymentReceived}</span>}
+                        <div className="text-[10px] text-gray-600 flex items-center gap-1.5 flex-wrap">
+                          {p.paymentReceived && <span className="text-emerald-700 font-bold">Rec: {p.paymentReceived}</span>}
                           {p.paymentPending && <span className="text-amber-700 font-bold">Pend: {p.paymentPending}</span>}
+                          {p.paymentStatus && (
+                            <span className="text-gray-600 bg-white px-1.5 py-0.5 rounded border border-gray-200 font-medium">
+                              {formatPaymentStatus(p.paymentStatus)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1739,10 +1911,20 @@ export default function AdminClientProjectsPage() {
                 <h3 className="text-lg sm:text-xl font-extrabold font-heading text-gray-900">
                   {quickViewProject.projectTitle}
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  Client: <strong>{quickViewProject.clientName}</strong>
-                  {quickViewProject.clientContact && ` • ${quickViewProject.clientContact}`}
-                </p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <p className="text-xs text-gray-500">
+                    Client: <strong>{quickViewProject.clientName}</strong>
+                    {quickViewProject.clientContact && ` • ${quickViewProject.clientContact}`}
+                  </p>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-brand-blue border border-blue-200">
+                    {formatProjectType(quickViewProject.projectType)}
+                  </span>
+                  {quickViewProject.paymentStatus && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {formatPaymentStatus(quickViewProject.paymentStatus)}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
