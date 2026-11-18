@@ -186,8 +186,11 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           paymentReceived: initial.paymentReceived || '',
           paymentPending: initial.paymentPending || '',
           paymentNotes: initial.paymentNotes || '',
+          initialRequirement: initial.initialRequirement || '',
           scopeFeatures: initial.scopeFeatures || initial.description || '',
           changeRequests: initial.changeRequests || '',
+          extraTimeRequired: initial.extraTimeRequired || '',
+          timeRemainingEstimate: initial.timeRemainingEstimate || '',
           currentStatusNote: initial.currentStatusNote || initial.notes || '',
           liveUrl: initial.liveUrl || '',
           stagingUrl: initial.stagingUrl || '',
@@ -211,8 +214,11 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           paymentReceived: '',
           paymentPending: '',
           paymentNotes: '',
+          initialRequirement: '',
           scopeFeatures: '',
           changeRequests: '',
+          extraTimeRequired: '',
+          timeRemainingEstimate: '',
           currentStatusNote: '',
           tags: 'React, Node.js, PostgreSQL',
           liveUrl: '',
@@ -263,9 +269,12 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
       paymentReceived: data.paymentReceived || '',
       paymentPending: data.paymentPending || '',
       paymentNotes: data.paymentNotes || '',
+      initialRequirement: data.initialRequirement || '',
       scopeFeatures: data.scopeFeatures || '',
       description: data.scopeFeatures || '',
       changeRequests: data.changeRequests || '',
+      extraTimeRequired: data.extraTimeRequired || '',
+      timeRemainingEstimate: data.timeRemainingEstimate || '',
       currentStatusNote: data.currentStatusNote || '',
       notes: data.currentStatusNote || '',
       liveUrl: data.liveUrl || '',
@@ -463,7 +472,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 pt-2">
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
               Lifecycle Status
@@ -527,6 +536,40 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
               className={inputCls}
             />
           </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center justify-between">
+              <span>Time Remaining</span>
+              <span className="text-[10px] text-brand-blue font-semibold">Aur kitna lagega</span>
+            </label>
+            <input
+              list="time-remaining-suggestions"
+              {...register('timeRemainingEstimate')}
+              className={inputCls}
+              placeholder="e.g. 10 Working Days, 2 Weeks..."
+            />
+            <datalist id="time-remaining-suggestions">
+              <option value="3-4 Days (Final QA)" />
+              <option value="1 Week" />
+              <option value="10 Working Days" />
+              <option value="2 Weeks" />
+              <option value="1 Month" />
+              <option value="Ready for Review" />
+              <option value="Live & Maintenance" />
+            </datalist>
+            <div className="flex items-center gap-1 flex-wrap pt-1.5">
+              {['3-4 Days', '1 Week', '10 Days', '2 Weeks'].map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => setValue('timeRemainingEstimate', chip)}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white hover:bg-brand-blue/10 text-gray-600 hover:text-brand-blue border border-gray-200 transition-all cursor-pointer shadow-2xs"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Progress Slider */}
@@ -576,13 +619,29 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
       {/* ── CARD 4: Scope Features & Changes ("Kya Kya Banana Hai" & "New Kya Add Hua") ── */}
       <div className="bg-gray-50/70 p-5 sm:p-6 rounded-2xl border border-gray-200 space-y-4">
         <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-          <span>📝</span> 4. Scope &amp; Client Changes ("Kya Kya Banana Hai" aur "New Kya Add Hua")
+          <span>📝</span> 4. Scope, Initial Vision &amp; Client Changes ("Pehle Kya Tha", "Ab Kya Banana Hai" aur "New Kya Add Hua")
         </p>
+
+        {/* Optional Context: Project Pehle Kya Tha */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-1.5">
+          <label className="text-xs font-bold text-gray-800 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span>📜</span> Initial Requirement ("Project Pehle Kya Tha" — Optional Background)
+            </span>
+            <span className="text-[10px] text-gray-400 font-normal">Optional • Explains scope evolution to boss/management</span>
+          </label>
+          <textarea
+            rows={2}
+            {...register('initialRequirement')}
+            className={`${inputCls} resize-none bg-gray-50/60 font-sans`}
+            placeholder="e.g. Pehle client ne basic 4-5 page brochure website with contact form bola tha."
+          />
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              What Needs to be Built ("Kya Kya Banana Hai" — Core Features &amp; Deliverables)
+              What Needs to be Built ("Kya Kya Banana Hai" — Current Deliverables &amp; Scope)
             </label>
             <textarea
               rows={4}
@@ -592,20 +651,56 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
             />
           </div>
 
-          <div>
-            <label className="text-xs font-bold text-amber-800 block mb-1.5 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-              New Additions by Client ("New Kya Add Karwaya Jisse Time Laga")
-            </label>
-            <textarea
-              rows={4}
-              {...register('changeRequests')}
-              className={`${inputCls} resize-none bg-amber-50/40 border-amber-200/80 focus:bg-white font-sans`}
-              placeholder="e.g. Client requested WhatsApp OTP login and Multi-currency payouts on 10th Nov (+7 days added to delivery deadline)."
-            />
-            <p className="text-[10px] text-amber-700 mt-1">
-              Important for management reports to show why extra days were required!
-            </p>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-amber-800 block mb-1.5 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                New Additions by Client ("New Kya Add Karwaya Jisse Time Laga")
+              </label>
+              <textarea
+                rows={3}
+                {...register('changeRequests')}
+                className={`${inputCls} resize-none bg-amber-50/40 border-amber-200/80 focus:bg-white font-sans`}
+                placeholder="e.g. Client requested WhatsApp OTP login, multi-currency payouts and vendor commission on 10th Nov."
+              />
+            </div>
+
+            {/* Extra Time Required Field */}
+            <div>
+              <label className="text-xs font-bold text-amber-900 block mb-1 flex items-center justify-between">
+                <span>Extra Days / Time Added ("Isse Kitna Extra Time Laga/Lagega")</span>
+                <span className="text-[10px] text-amber-700 font-semibold">Timeline delay impact</span>
+              </label>
+              <input
+                list="extra-time-suggestions"
+                {...register('extraTimeRequired')}
+                className={`${inputCls} bg-amber-50/30 border-amber-200/80`}
+                placeholder="e.g. +7 Days, +15 Days, +2 Weeks..."
+              />
+              <datalist id="extra-time-suggestions">
+                <option value="+3 Days" />
+                <option value="+5 Days" />
+                <option value="+7 Days" />
+                <option value="+10 Days" />
+                <option value="+15 Days" />
+                <option value="+2 Weeks" />
+                <option value="+1 Month" />
+                <option value="No Extra Delay" />
+              </datalist>
+              <div className="flex items-center gap-1 flex-wrap pt-1">
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Quick Pick:</span>
+                {['+3 Days', '+5 Days', '+7 Days', '+10 Days', '+15 Days', 'No Delay'].map((delayChip) => (
+                  <button
+                    key={delayChip}
+                    type="button"
+                    onClick={() => setValue('extraTimeRequired', delayChip)}
+                    className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 transition-all cursor-pointer shadow-2xs"
+                  >
+                    {delayChip}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -872,7 +967,7 @@ function PrintSingleProjectModal({ project, onClose }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-gray-200/80 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-3 border-t border-gray-200/80 text-xs">
               <div>
                 <span className="text-gray-400 text-[10px] uppercase font-bold block">Current Stage</span>
                 <span className="font-bold text-brand-blue">{stageObj.label}</span>
@@ -889,6 +984,12 @@ function PrintSingleProjectModal({ project, onClose }) {
                 <span className="text-gray-400 text-[10px] uppercase font-bold block">Deadline</span>
                 <span className="font-bold text-gray-900">
                   {project.deadline ? new Date(project.deadline).toLocaleDateString('en-IN') : 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Time Remaining</span>
+                <span className="font-extrabold text-brand-blue">
+                  {project.timeRemainingEstimate || 'On Schedule'}
                 </span>
               </div>
             </div>
@@ -914,24 +1015,44 @@ function PrintSingleProjectModal({ project, onClose }) {
             </p>
           </div>
 
+          {/* Project Story / Evolution (If Initial Requirement Recorded) */}
+          {project.initialRequirement && (
+            <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-1">
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                <span>📜</span> Project Background ("Project Pehle Kya Tha" — Initial Scope)
+              </h4>
+              <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {project.initialRequirement}
+              </p>
+            </div>
+          )}
+
           {/* Scope Features vs Changes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
               <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
-                📝 Agreed Scope &amp; Deliverables
+                📝 Agreed Deliverables ("Kya Kya Banana Hai")
               </h4>
               <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
                 {project.scopeFeatures || project.description || 'Deliverables as per work agreement.'}
               </p>
             </div>
 
-            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-200 space-y-1">
+            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-200 space-y-1.5">
               <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 flex items-center gap-1">
-                <span>⚠️</span> Client Change Requests / Additions
+                <span>⚠️</span> Client Additions ("New Kya Add Karwaya")
               </h4>
               <p className="text-xs text-amber-950 whitespace-pre-wrap leading-relaxed">
                 {project.changeRequests || 'No additional change requests recorded.'}
               </p>
+              {project.extraTimeRequired && (
+                <div className="pt-1.5 border-t border-amber-200/80 flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-amber-900">Extra Time Added:</span>
+                  <span className="font-black text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200">
+                    ⏱️ {project.extraTimeRequired}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1121,7 +1242,14 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                       </td>
                       <td className="p-2.5 font-mono font-bold text-brand-blue">{p.progress}%</td>
                       <td className="p-2.5 whitespace-nowrap">
-                        {p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : 'N/A'}
+                        <span className="font-bold text-gray-900 block">
+                          {p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : 'N/A'}
+                        </span>
+                        {p.timeRemainingEstimate && (
+                          <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-1 rounded block mt-0.5">
+                            ⏱️ ~{p.timeRemainingEstimate}
+                          </span>
+                        )}
                       </td>
                       <td className="p-2.5 whitespace-nowrap">
                         <span className="font-bold text-gray-900 block">{p.budget || '—'}</span>
@@ -1134,6 +1262,7 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                         {p.changeRequests && (
                           <p className="text-[10px] text-amber-700 font-bold mt-0.5 line-clamp-1">
                             +Scope: {p.changeRequests}
+                            {p.extraTimeRequired && ` (${p.extraTimeRequired})`}
                           </p>
                         )}
                       </td>
@@ -1268,8 +1397,11 @@ export default function AdminClientProjectsPage() {
         p.assignedTo?.toLowerCase().includes(q) ||
         p.projectType?.toLowerCase().includes(q) ||
         p.paymentStatus?.toLowerCase().includes(q) ||
+        p.initialRequirement?.toLowerCase().includes(q) ||
         p.scopeFeatures?.toLowerCase().includes(q) ||
         p.changeRequests?.toLowerCase().includes(q) ||
+        p.extraTimeRequired?.toLowerCase().includes(q) ||
+        p.timeRemainingEstimate?.toLowerCase().includes(q) ||
         p.currentStatusNote?.toLowerCase().includes(q) ||
         p.description?.toLowerCase().includes(q) ||
         (Array.isArray(p.tags) && p.tags.some((t) => t.toLowerCase().includes(q)))
@@ -1326,13 +1458,16 @@ export default function AdminClientProjectsPage() {
       'Assigned Team',
       'Start Date',
       'Deadline',
+      'Time Remaining (Kitna Time Aur Lagega)',
       'Budget',
       'Payment Status',
       'Payment Received',
       'Payment Pending',
       'Payment Notes',
-      'Scope Deliverables',
-      'Client Changes (Extra Time)',
+      'Initial Requirement (Pehle Kya Tha)',
+      'Scope Deliverables (Kya Banana Hai)',
+      'Client Changes (New Kya Add Hua)',
+      'Extra Time Added (Delay Impact)',
       'Latest Status Scene',
       'Live URL',
       'Staging URL',
@@ -1360,13 +1495,16 @@ export default function AdminClientProjectsPage() {
         escapeCsv(p.assignedTo),
         escapeCsv(p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : ''),
         escapeCsv(p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : ''),
+        escapeCsv(p.timeRemainingEstimate || ''),
         escapeCsv(p.budget),
         escapeCsv(formatPaymentStatus(p.paymentStatus)),
         escapeCsv(p.paymentReceived),
         escapeCsv(p.paymentPending),
         escapeCsv(p.paymentNotes),
+        escapeCsv(p.initialRequirement),
         escapeCsv(p.scopeFeatures || p.description),
         escapeCsv(p.changeRequests),
+        escapeCsv(p.extraTimeRequired),
         escapeCsv(p.currentStatusNote || p.notes),
         escapeCsv(p.liveUrl),
         escapeCsv(p.stagingUrl),
@@ -1781,14 +1919,19 @@ export default function AdminClientProjectsPage() {
 
                     {/* Change Requests Alert (If Client added new things) */}
                     {p.changeRequests && (
-                      <div className="bg-amber-50/70 p-2 rounded-xl border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                        <div className="min-w-0 flex-1">
-                          <span className="font-bold block text-[10px] uppercase text-amber-800">
-                            Scope Additions (Extra Time):
+                      <div className="bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/80 text-[11px] text-amber-900 space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold flex items-center gap-1 text-[10px] uppercase text-amber-800">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            Scope Additions:
                           </span>
-                          <p className="line-clamp-1 font-medium text-amber-950">{p.changeRequests}</p>
+                          {p.extraTimeRequired && (
+                            <span className="text-[9px] font-black text-rose-700 bg-white px-1.5 py-0.5 rounded border border-rose-200">
+                              ⏱️ {p.extraTimeRequired}
+                            </span>
+                          )}
                         </div>
+                        <p className="line-clamp-2 font-medium text-amber-950">{p.changeRequests}</p>
                       </div>
                     )}
 
@@ -1842,11 +1985,18 @@ export default function AdminClientProjectsPage() {
 
                   {/* Card Actions Footer */}
                   <div className="flex items-center justify-between pt-3 border-t border-gray-100 flex-wrap gap-2">
-                    <span
-                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${deadlineStatus.color}`}
-                    >
-                      {deadlineStatus.text}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${deadlineStatus.color}`}
+                      >
+                        {deadlineStatus.text}
+                      </span>
+                      {p.timeRemainingEstimate && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          ⏱️ ~{p.timeRemainingEstimate}
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-1">
                       {/* Individual Project Print Sheet */}
@@ -1948,7 +2098,7 @@ export default function AdminClientProjectsPage() {
             </div>
 
             {/* Quick Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
                 <span className="text-[10px] font-bold text-gray-400 uppercase">Stage</span>
                 <p className="text-xs font-bold text-brand-blue mt-0.5">
@@ -1969,6 +2119,12 @@ export default function AdminClientProjectsPage() {
                   {quickViewProject.deadline ? new Date(quickViewProject.deadline).toLocaleDateString('en-IN') : 'N/A'}
                 </p>
               </div>
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Time Remaining</span>
+                <p className="text-xs font-bold text-indigo-700 mt-1">
+                  {quickViewProject.timeRemainingEstimate || 'On Schedule'}
+                </p>
+              </div>
             </div>
 
             {/* Team */}
@@ -1985,18 +2141,37 @@ export default function AdminClientProjectsPage() {
               </p>
             </div>
 
+            {/* Project Background / Initial Requirement */}
+            {quickViewProject.initialRequirement && (
+              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                  Project Background ("Project Pehle Kya Tha" — Initial Scope)
+                </span>
+                <p className="text-xs text-gray-700 whitespace-pre-wrap">
+                  {quickViewProject.initialRequirement}
+                </p>
+              </div>
+            )}
+
             {/* Scope vs Changes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Scope of Work</span>
+              <div className="p-3.5 bg-white rounded-xl border border-gray-200 space-y-1">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Scope of Work ("Kya Banana Hai")</span>
                 <p className="text-xs text-gray-700 whitespace-pre-wrap">
                   {quickViewProject.scopeFeatures || quickViewProject.description || 'Deliverables as per initial agreement.'}
                 </p>
               </div>
-              <div className="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 space-y-1">
-                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
-                  Client Changes &amp; Extra Additions
-                </span>
+              <div className="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                    Client Additions ("New Kya Add Hua")
+                  </span>
+                  {quickViewProject.extraTimeRequired && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white text-rose-700 border border-rose-200">
+                      ⏱️ {quickViewProject.extraTimeRequired}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-amber-950 whitespace-pre-wrap">
                   {quickViewProject.changeRequests || 'None recorded.'}
                 </p>

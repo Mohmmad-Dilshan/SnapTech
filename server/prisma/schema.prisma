@@ -366,6 +366,9 @@ model ClientProject {
   devStage          String?            @default("PLANNING") // PLANNING | UI_UX_DESIGN | FRONTEND_DEV | BACKEND_DEV | TESTING_QA | CLIENT_REVIEW | DEPLOYMENT | COMPLETED
   scopeFeatures     String?            // What is to be built / Scope & Features
   changeRequests    String?            // New additions & client changes that took extra time
+  initialRequirement   String?            // Original client requirement / Background ("Project Pehle Kya Tha")
+  extraTimeRequired    String?            // Extra days/weeks added due to client changes ("New Updates se Kitna Extra Time Laga")
+  timeRemainingEstimate String?           // Estimated completion time / days left ("Kitna Time Aur Lagega")
   paymentStatus     String?            @default("PENDING") // PENDING | ADVANCE_PAID | PARTIAL | FULLY_PAID
   paymentReceived   String?            // Amount received (e.g. ₹25,000)
   paymentPending    String?            // Amount pending (e.g. ₹25,000)

@@ -107,7 +107,15 @@ const startServer = async () => {
       for (const col of appCols) {
         await prisma.$executeRawUnsafe(`ALTER TABLE "job_applications" ADD COLUMN IF NOT EXISTS ${col}`)
       }
-      logger.info('Database auto-migration: verified job_applications columns exist')
+      const projCols = [
+        '"initialRequirement" TEXT',
+        '"extraTimeRequired" TEXT',
+        '"timeRemainingEstimate" TEXT',
+      ]
+      for (const col of projCols) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "client_projects" ADD COLUMN IF NOT EXISTS ${col}`)
+      }
+      logger.info('Database auto-migration: verified job_applications & client_projects columns exist')
     } catch (migErr) {
       logger.warn('Database auto-migration warning:', migErr.message)
     }
