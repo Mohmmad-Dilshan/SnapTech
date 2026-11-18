@@ -5,7 +5,7 @@ import path from 'path'
 let dbUrl = process.env.DATABASE_URL
 if (dbUrl && !dbUrl.includes('connection_limit')) {
   const separator = dbUrl.includes('?') ? '&' : '?'
-  dbUrl = `${dbUrl}${separator}connection_limit=20&pool_timeout=10`
+  dbUrl = `${dbUrl}${separator}connection_limit=5&pool_timeout=15`
 }
 
 const realPrisma = new PrismaClient({
