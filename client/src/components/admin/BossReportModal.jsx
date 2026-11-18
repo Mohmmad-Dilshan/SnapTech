@@ -67,39 +67,77 @@ export default function BossReportModal({ isOpen, onClose, projects = [], client
   }
 
   const handleExportCSV = () => {
-    if (!report || !report.dailyLogs) return
+    if (!report) return
 
-    const headers = [
-      'Date',
-      'Project',
-      'Client',
-      'Author',
-      'Work Completed Today',
-      'Features Added',
-      'Bugs Fixed',
-      'Issues / Blockers',
-      'Tomorrow Plan',
-      'Hours',
-    ]
+    let csvContent
+    if (report.dailyLogs && report.dailyLogs.length > 0) {
+      const headers = [
+        'Date',
+        'Project',
+        'Client',
+        'Author',
+        'Work Completed Today',
+        'Features Added',
+        'Bugs Fixed',
+        'Issues / Blockers',
+        'Tomorrow Plan',
+        'Hours',
+      ]
+      const rows = report.dailyLogs.map((log) => [
+        `"${new Date(log.date).toLocaleDateString('en-IN')}"`,
+        `"${(log.projectTitle || '').replace(/"/g, '""')}"`,
+        `"${(log.clientName || '').replace(/"/g, '""')}"`,
+        `"${(log.authorName || '').replace(/"/g, '""')}"`,
+        `"${(log.workDone || '').replace(/"/g, '""')}"`,
+        `"${(log.featuresAdded || '').replace(/"/g, '""')}"`,
+        `"${(log.bugsFixed || '').replace(/"/g, '""')}"`,
+        `"${(log.issuesEncountered || '').replace(/"/g, '""')}"`,
+        `"${(log.nextDayPlan || '').replace(/"/g, '""')}"`,
+        log.timeSpentHours || 0,
+      ])
+      csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
+    } else if (report.projects && report.projects.length > 0) {
+      const headers = [
+        'Project Title',
+        'Client Name',
+        'Project Type',
+        'Status',
+        'Priority',
+        'Progress %',
+        'Budget',
+        'Assigned Staff',
+        'Start Date',
+        'Deadline',
+        'Live URL',
+        'Staging URL',
+        'Repo URL',
+        'Tasks Count',
+      ]
+      const rows = report.projects.map((p) => [
+        `"${(p.projectTitle || '').replace(/"/g, '""')}"`,
+        `"${(p.clientName || '').replace(/"/g, '""')}"`,
+        `"${(p.projectType || 'CUSTOM').replace(/"/g, '""')}"`,
+        `"${p.status || ''}"`,
+        `"${p.priority || ''}"`,
+        p.progress || 0,
+        `"${(p.budget || '').replace(/"/g, '""')}"`,
+        `"${(p.assignedTo || 'Unassigned').replace(/"/g, '""')}"`,
+        p.startDate ? `"${new Date(p.startDate).toLocaleDateString('en-IN')}"` : '""',
+        p.deadline ? `"${new Date(p.deadline).toLocaleDateString('en-IN')}"` : '""',
+        `"${(p.liveUrl || '').replace(/"/g, '""')}"`,
+        `"${(p.stagingUrl || '').replace(/"/g, '""')}"`,
+        `"${(p.repoUrl || '').replace(/"/g, '""')}"`,
+        p.tasks?.length || 0,
+      ])
+      csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
+    } else {
+      return
+    }
 
-    const rows = report.dailyLogs.map((log) => [
-      `"${new Date(log.date).toLocaleDateString('en-IN')}"`,
-      `"${(log.projectTitle || '').replace(/"/g, '""')}"`,
-      `"${(log.clientName || '').replace(/"/g, '""')}"`,
-      `"${(log.authorName || '').replace(/"/g, '""')}"`,
-      `"${(log.workDone || '').replace(/"/g, '""')}"`,
-      `"${(log.featuresAdded || '').replace(/"/g, '""')}"`,
-      `"${(log.bugsFixed || '').replace(/"/g, '""')}"`,
-      `"${(log.issuesEncountered || '').replace(/"/g, '""')}"`,
-      `"${(log.nextDayPlan || '').replace(/"/g, '""')}"`,
-      log.timeSpentHours || 0,
-    ])
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement('a')
     link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `SnapTech_Management_Report_${reportType}_${new Date().toISOString().split('T')[0]}.csv`)
+    link.setAttribute('download', `SnapTech_Executive_Report_${reportType}_${new Date().toISOString().split('T')[0]}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -136,7 +174,7 @@ export default function BossReportModal({ isOpen, onClose, projects = [], client
             </button>
             <button
               onClick={handleExportCSV}
-              disabled={!report || (report.dailyLogs || []).length === 0}
+              disabled={!report || ((report.dailyLogs || []).length === 0 && (report.projects || []).length === 0)}
               className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
