@@ -1,8 +1,8 @@
 /**
- * AdminClientProjectsPage.jsx — Enterprise Client Projects Tracker & Vault
- * Integrated Daily Work Logs, Bug/Issue Tracker, Feature Pipeline, Management Reporting, and 360° Workspace.
+ * AdminClientProjectsPage.jsx — Client Projects Tracker & Vault
+ * Streamlined project management, team attribution, client linking, deliverables vault, SLA tracking, and Boss (Excel/PDF) reporting.
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus,
@@ -11,8 +11,8 @@ import {
   X,
   Check,
   Search,
-  Calendar,
   User,
+  Tag,
   Clock,
   FolderOpen,
   Eye,
@@ -21,16 +21,10 @@ import {
   Send,
   Building2,
   FileSpreadsheet,
-  Briefcase,
   Globe,
   ExternalLink,
   Code2,
-  AlertTriangle,
-  Bug,
   Layers,
-  Lock,
-  BarChart3,
-  CheckCircle2,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { api } from '@/utils/api'
@@ -38,22 +32,21 @@ import { SEO, ConfirmModal } from '@/components/ui'
 import AttachmentSection from '@/components/ui/AttachmentSection'
 import AdminBillingSection from '@/components/admin/AdminBillingSection'
 import BossReportModal from '@/components/admin/BossReportModal'
-import ProjectWorkspaceDrawer from '@/components/admin/ProjectWorkspaceDrawer'
 import { useToast } from '@/components/ui/ToastProvider'
 
 const STATUSES = ['PLANNING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'ON_HOLD']
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
 
 const PROJECT_TYPES = [
-  'Website Development',
-  'Web Application',
-  'Mobile Application',
-  'Client Portal',
-  'Admin Panel',
-  'E-Commerce Website',
-  'API / Backend Development',
-  'Maintenance & Support',
-  'Custom Project',
+  { id: 'WEBSITE', label: 'Website Development' },
+  { id: 'WEB_APP', label: 'Web Application' },
+  { id: 'MOBILE_APP', label: 'Mobile Application' },
+  { id: 'PORTAL', label: 'Client Portal' },
+  { id: 'ADMIN_PANEL', label: 'Admin Panel' },
+  { id: 'ECOMMERCE', label: 'E-Commerce Website' },
+  { id: 'BACKEND_API', label: 'API / Backend' },
+  { id: 'MAINTENANCE', label: 'Maintenance & Support' },
+  { id: 'CUSTOM', label: 'Other Custom Project' },
 ]
 
 const STATUS_LABELS = {
@@ -83,6 +76,12 @@ const HEALTH_COLORS = {
   ON_TRACK: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   AT_RISK: 'bg-amber-50 text-amber-700 border-amber-200 font-bold',
   DELAYED: 'bg-rose-50 text-rose-700 border-rose-200 font-bold ring-1 ring-rose-500/20',
+}
+
+const HEALTH_LABELS = {
+  ON_TRACK: '🟢 On Track',
+  AT_RISK: '🟡 At Risk',
+  DELAYED: '🔴 Delayed',
 }
 
 const inputCls =
@@ -118,7 +117,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           clientId: initial.clientId || '',
           assignedTo: initial.assignedTo || '',
           assignedToEmail: initial.assignedToEmail || '',
-          projectType: initial.projectType || 'Website Development',
+          projectType: initial.projectType || 'CUSTOM',
           health: initial.health || 'ON_TRACK',
           liveUrl: initial.liveUrl || '',
           stagingUrl: initial.stagingUrl || '',
@@ -128,6 +127,8 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
       : {
           clientName: '',
           projectTitle: '',
+          projectType: 'WEBSITE',
+          health: 'ON_TRACK',
           description: '',
           startDate: formatDateForInput(new Date()),
           deadline: '',
@@ -136,16 +137,14 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           budget: '',
           tags: '',
           notes: '',
-          status: 'PLANNING',
-          priority: 'MEDIUM',
-          progress: 0,
-          clientId: '',
-          projectType: 'Website Development',
-          health: 'ON_TRACK',
           liveUrl: '',
           stagingUrl: '',
           repoUrl: '',
           credentialsNotes: '',
+          status: 'PLANNING',
+          priority: 'MEDIUM',
+          progress: 0,
+          clientId: '',
         },
   })
 
@@ -155,23 +154,23 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
     const payload = {
       projectTitle: data.projectTitle,
       clientName: data.clientName,
+      projectType: data.projectType || 'CUSTOM',
+      health: data.health || 'ON_TRACK',
       description: data.description || '',
       startDate: data.startDate,
       deadline: data.deadline,
       assignedTo: data.assignedTo || '',
       assignedToEmail: data.assignedToEmail || '',
       budget: data.budget || '',
+      liveUrl: data.liveUrl || '',
+      stagingUrl: data.stagingUrl || '',
+      repoUrl: data.repoUrl || '',
+      credentialsNotes: data.credentialsNotes || '',
       notes: data.notes || '',
       status: data.status || 'PLANNING',
       priority: data.priority || 'MEDIUM',
       progress: parseInt(data.progress || 0),
       clientId: data.clientId || null,
-      projectType: data.projectType || 'Website Development',
-      health: data.health || 'ON_TRACK',
-      liveUrl: data.liveUrl || null,
-      stagingUrl: data.stagingUrl || null,
-      repoUrl: data.repoUrl || null,
-      credentialsNotes: data.credentialsNotes || null,
       tags: data.tags
         ? typeof data.tags === 'string'
           ? data.tags.split(',').map((t) => t.trim()).filter(Boolean)
@@ -193,16 +192,28 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
         <p className="text-xs font-bold text-brand-blue uppercase tracking-wider flex items-center gap-2">
           <span>📋</span> 1. Core Identification &amp; Client Account
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
               Project Title *
             </label>
             <input
               {...register('projectTitle', { required: true })}
               className={inputCls}
-              placeholder="e.g. E-Commerce Website & Mobile App"
+              placeholder="e.g. Corporate Website & Client Portal"
             />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Project Type
+            </label>
+            <select {...register('projectType')} className={inputCls}>
+              {PROJECT_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
@@ -213,18 +224,6 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
               className={inputCls}
               placeholder="e.g. Ramesh Textiles Pvt Ltd"
             />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Project Type / Category
-            </label>
-            <select {...register('projectType')} className={inputCls}>
-              {PROJECT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
@@ -252,9 +251,9 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
               ))}
             </select>
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Assigned To (Team Lead / Staff)
+              Assigned Staff / Team Member
             </label>
             <select
               className={inputCls}
@@ -292,7 +291,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
       {/* Section 2: Financial Budget & Schedule */}
       <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
         <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-          <span>💵</span> 2. Financial Budget, Schedule &amp; Health
+          <span>💵</span> 2. Financial Budget &amp; Project Schedule
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div>
@@ -316,53 +315,22 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Project Health</label>
-            <select {...register('health')} className={inputCls}>
-              <option value="ON_TRACK">● On Track (Normal)</option>
-              <option value="AT_RISK">● At Risk (Blockers)</option>
-              <option value="DELAYED">● Delayed (Past SLA)</option>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">Priority Level</label>
+            <select {...register('priority')} className={inputCls}>
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
             </select>
           </div>
         </div>
       </div>
 
-      {/* Section 3: Deployment & Repository URLs */}
-      <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
-        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-2">
-          <span>🌐</span> 3. Deployment, Testing &amp; Source Code Links
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Live Production URL</label>
-            <input
-              {...register('liveUrl')}
-              placeholder="https://example.com"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Staging / Test URL</label>
-            <input
-              {...register('stagingUrl')}
-              placeholder="https://staging.example.com"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Git Repository URL</label>
-            <input
-              {...register('repoUrl')}
-              placeholder="https://github.com/..."
-              className={inputCls}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Section 4: Lifecycle Status & Completion Progress */}
+      {/* Section 3: Status, Health & Progress */}
       <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
         <p className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-2">
-          <span>📈</span> 4. Lifecycle Status &amp; Completion Progress
+          <span>📈</span> 3. Lifecycle Status, Health &amp; Progress
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
@@ -376,21 +344,20 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
             </select>
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Priority Level</label>
-            <select {...register('priority')} className={inputCls}>
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">Project Health</label>
+            <select {...register('health')} className={inputCls}>
+              <option value="ON_TRACK">🟢 On Track</option>
+              <option value="AT_RISK">🟡 At Risk</option>
+              <option value="DELAYED">🔴 Delayed</option>
             </select>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
               Tags (Comma Separated)
             </label>
-            <input {...register('tags')} className={inputCls} placeholder="Web, React, E-Commerce, SEO" />
+            <input {...register('tags')} className={inputCls} placeholder="React, Node, UI/UX" />
           </div>
+
           <div className="sm:col-span-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
             <div className="flex justify-between items-center text-xs font-bold text-gray-800 flex-wrap gap-2">
               <span className="flex items-center gap-1.5">
@@ -411,18 +378,17 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
                     {preset}%
                   </button>
                 ))}
-                <span className="px-2.5 py-0.5 rounded-full bg-linear-to-r from-brand-blue to-indigo-600 text-white font-mono font-bold text-[11px] ml-1 shadow-xs">
+                <span className="px-2.5 py-0.5 rounded-full bg-brand-blue text-white font-mono font-bold text-[11px] ml-1 shadow-xs">
                   {watchedProgress}%
                 </span>
               </div>
             </div>
 
-            {/* Live Visual Gradient Progress Fill Bar */}
             <div className="relative pt-1">
-              <div className="overflow-hidden h-3 text-xs flex rounded-full bg-gray-150 border border-gray-200/80 shadow-inner">
+              <div className="overflow-hidden h-3 text-xs flex rounded-full bg-gray-100 border border-gray-200 shadow-inner">
                 <div
                   style={{ width: `${watchedProgress}%` }}
-                  className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-linear-to-r from-brand-blue via-indigo-600 to-emerald-500 transition-all duration-300 rounded-full"
+                  className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-brand-blue transition-all duration-300 rounded-full"
                 />
               </div>
               <input
@@ -438,15 +404,42 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
         </div>
       </div>
 
-      {/* Section 5: Brief Description, Confidential Notes & Credentials */}
+      {/* Section 4: Live, Staging & Repository URLs */}
+      <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
+        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-2">
+          <span>🔗</span> 4. Deployment URLs &amp; Git Repository
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center gap-1">
+              <Globe className="w-3.5 h-3.5 text-blue-500" /> Live Website URL
+            </label>
+            <input {...register('liveUrl')} className={inputCls} placeholder="https://clientdomain.com" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center gap-1">
+              <ExternalLink className="w-3.5 h-3.5 text-amber-500" /> Staging URL
+            </label>
+            <input {...register('stagingUrl')} className={inputCls} placeholder="https://staging.clientdomain.com" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center gap-1">
+              <Code2 className="w-3.5 h-3.5 text-purple-500" /> Repository URL
+            </label>
+            <input {...register('repoUrl')} className={inputCls} placeholder="https://github.com/org/repo" />
+          </div>
+        </div>
+      </div>
+
+      {/* Section 5: Description, Credentials & Confidential Notes */}
       <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
         <p className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-2">
-          <span>📝</span> 5. Project Brief, Internal Notes &amp; Credentials
+          <span>📝</span> 5. Project Brief &amp; Confidential Internal Notes
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Client Visible Project Brief
+              Client-Visible Project Brief / Scope
             </label>
             <textarea
               rows={3}
@@ -457,25 +450,13 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           </div>
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Confidential Internal Admin Notes
+              Confidential Internal Admin Notes / Credentials
             </label>
             <textarea
               rows={3}
               {...register('notes')}
               className={`${inputCls} resize-none bg-amber-50/30 border-amber-200/60 focus:bg-white`}
-              placeholder="Internal agreements, team milestones, meeting notes..."
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-xs font-bold text-amber-900 block mb-1.5 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-amber-700" />
-              Confidential Access Credentials (Server, Hosting, API Keys)
-            </label>
-            <textarea
-              rows={2}
-              {...register('credentialsNotes')}
-              className={`${inputCls} resize-none bg-amber-50/40 border-amber-200 font-mono text-xs focus:bg-white`}
-              placeholder="e.g. CPanel login, AWS EC2 IP, Razorpay Key ID (stored securely for internal team)..."
+              placeholder="Internal credentials, hosting access, payment agreements, team notes..."
             />
           </div>
         </div>
@@ -526,14 +507,12 @@ export default function AdminClientProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [priorityFilter, setPriorityFilter] = useState('ALL')
-  const [portalLinkFilter, setPortalLinkFilter] = useState('ALL')
-  const [projectTypeFilter, setProjectTypeFilter] = useState('ALL')
   const [clientFilter, setClientFilter] = useState('ALL')
-  const [healthFilter, setHealthFilter] = useState('ALL')
+  const [quickViewProject, setQuickViewProject] = useState(null)
+  const [showBossReportModal, setShowBossReportModal] = useState(false)
 
-  // Modals & Drawers
-  const [workspaceProject, setWorkspaceProject] = useState(null)
-  const [showBossReport, setShowBossReport] = useState(false)
+  // In-modal task creation
+  const [newTaskTitle, setNewTaskTitle] = useState('')
 
   // Confirm Modals state
   const [deleteConfirm, setDeleteConfirm] = useState({
@@ -555,13 +534,8 @@ export default function AdminClientProjectsPage() {
   })
 
   const { data: clients = [] } = useQuery({
-    queryKey: ['admin-clients-list'],
+    queryKey: ['admin-clients-list-for-dropdown'],
     queryFn: () => api.get('/admin/clients').then((r) => r.data),
-  })
-
-  const { data: assignableTeam = [] } = useQuery({
-    queryKey: ['admin-assignable-team-dropdown'],
-    queryFn: () => api.get('/admin/users/list-assignable').then((r) => r.data),
   })
 
   // Mutations
@@ -605,7 +579,7 @@ export default function AdminClientProjectsPage() {
       qc.invalidateQueries({ queryKey: ['admin-stats'] })
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to delete project', 'error')
+      toast.error(err.response?.data?.message || 'Failed to delete project')
     },
   })
 
@@ -619,99 +593,98 @@ export default function AdminClientProjectsPage() {
     },
   })
 
-  const hasActiveFilters =
-    searchTerm !== '' ||
-    statusFilter !== 'ALL' ||
-    priorityFilter !== 'ALL' ||
-    portalLinkFilter !== 'ALL' ||
-    projectTypeFilter !== 'ALL' ||
-    clientFilter !== 'ALL' ||
-    healthFilter !== 'ALL'
+  // Task mutation inside Quick View Modal
+  const createTaskMutation = useMutation({
+    mutationFn: ({ projectId, title }) =>
+      api.post(`/admin/client-projects/${projectId}/tasks`, { title, priority: 'MEDIUM' }),
+    onSuccess: (res) => {
+      toast.success('Task added to project!')
+      setNewTaskTitle('')
+      qc.invalidateQueries({ queryKey: ['admin-client-projects'] })
+      if (quickViewProject) {
+        setQuickViewProject((prev) => ({
+          ...prev,
+          tasks: [...(prev.tasks || []), res.data.data],
+        }))
+      }
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to add task.')
+    },
+  })
 
-  const resetFilters = () => {
-    setSearchTerm('')
-    setStatusFilter('ALL')
-    setPriorityFilter('ALL')
-    setPortalLinkFilter('ALL')
-    setProjectTypeFilter('ALL')
-    setClientFilter('ALL')
-    setHealthFilter('ALL')
+  const toggleTaskMutation = useMutation({
+    mutationFn: ({ taskId, status }) =>
+      api.patch(`/admin/tasks/${taskId}`, { status }),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['admin-client-projects'] })
+      if (quickViewProject) {
+        setQuickViewProject((prev) => ({
+          ...prev,
+          tasks: (prev.tasks || []).map((t) =>
+            t.id === variables.taskId ? { ...t, status: variables.status } : t
+          ),
+        }))
+      }
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to update task.')
+    },
+  })
+
+  const handleAttachmentChange = () => {
+    qc.invalidateQueries({ queryKey: ['admin-client-projects'] })
   }
 
-  const handleExportCSV = () => {
-    const headers = [
-      'Project Title',
-      'Client Name',
-      'Type',
-      'Status',
-      'Health',
-      'Priority',
-      'Progress (%)',
-      'Budget',
-      'Start Date',
-      'Deadline',
-      'Assigned To',
-      'Live URL',
-    ]
-    const rows = projects.map((p) => [
-      `"${p.projectTitle.replace(/"/g, '""')}"`,
-      `"${p.clientName.replace(/"/g, '""')}"`,
-      `"${p.projectType || 'Website'}"`,
-      p.status,
-      p.health || 'ON_TRACK',
-      p.priority,
-      p.progress,
-      `"${(p.budget || '').replace(/"/g, '""')}"`,
-      new Date(p.startDate).toISOString().split('T')[0],
-      new Date(p.deadline).toISOString().split('T')[0],
-      `"${(p.assignedTo || '').replace(/"/g, '""')}"`,
-      `"${(p.liveUrl || '').replace(/"/g, '""')}"`,
-    ])
+  // Summary statistics
+  const stats = useMemo(() => {
+    const total = projects.length
+    const active = projects.filter((p) => p.status === 'IN_PROGRESS' || p.status === 'PLANNING').length
+    const completed = projects.filter((p) => p.status === 'COMPLETED').length
+    const overdue = projects.filter((p) => {
+      if (!p.deadline || p.status === 'COMPLETED') return false
+      return new Date(p.deadline) < new Date()
+    }).length
+    return { total, active, completed, overdue }
+  }, [projects])
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `SnapTech_Client_Projects_${new Date().toISOString().split('T')[0]}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
+  // Filtered projects
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => {
+      const matchesSearch =
+        searchTerm === '' ||
+        p.projectTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.tags && p.tags.some((t) => t.toLowerCase().includes(searchTerm.toLowerCase())))
 
-  const handleAttachmentChange = async () => {
-    const updated = await refetch()
-    const list = Array.isArray(updated.data) ? updated.data : []
-    const found = list.find((p) => p.id === editing?.id)
-    if (found) setEditing(found)
-  }
+      const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter
+      const matchesPriority = priorityFilter === 'ALL' || p.priority === priorityFilter
+      const matchesClient = clientFilter === 'ALL' || p.clientId === clientFilter || p.clientName === clientFilter
 
-  const getDeadlineText = (deadlineStr, status) => {
-    if (status === 'COMPLETED') {
-      return { text: 'Completed', color: 'text-emerald-700 bg-emerald-50 border-emerald-200 font-bold' }
-    }
+      return matchesSearch && matchesStatus && matchesPriority && matchesClient
+    })
+  }, [projects, searchTerm, statusFilter, priorityFilter, clientFilter])
+
+  const calculateDaysLeft = (deadlineStr) => {
+    if (!deadlineStr) return { text: 'No SLA Date', color: 'bg-gray-100 text-gray-500 border-gray-200' }
     const deadline = new Date(deadlineStr)
-    const now = new Date()
-    const diffTime = deadline - now
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    deadline.setHours(0, 0, 0, 0)
+    const diffTime = deadline - today
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
     if (diffDays < 0) {
-      return {
-        text: `Overdue by ${Math.abs(diffDays)}d`,
-        color: 'text-rose-700 bg-rose-50 border-rose-200 font-bold',
-      }
+      return { text: `Overdue by ${Math.abs(diffDays)}d`, color: 'bg-rose-50 text-rose-700 border-rose-200 font-bold' }
     }
     if (diffDays === 0) {
-      return {
-        text: 'Due Today',
-        color: 'text-amber-700 bg-amber-50 border-amber-200 font-semibold',
-      }
+      return { text: 'Due Today', color: 'bg-orange-50 text-orange-700 border-orange-200 font-bold animate-pulse' }
     }
-    if (diffDays === 1) {
-      return { text: 'Due Tomorrow', color: 'text-amber-700 bg-amber-50 border-amber-200' }
+    if (diffDays <= 3) {
+      return { text: `Due in ${diffDays}d`, color: 'bg-amber-50 text-amber-700 border-amber-200 font-semibold' }
     }
-    return { text: `${diffDays} days left`, color: 'text-gray-600 bg-gray-50 border-gray-200' }
+    return { text: `${diffDays} days left`, color: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-medium' }
   }
 
   const handleDeleteClick = (project) => {
@@ -722,125 +695,65 @@ export default function AdminClientProjectsPage() {
     })
   }
 
-  const filteredProjects = projects.filter((p) => {
-    const matchesSearch =
-      !searchTerm ||
-      p.projectTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.assignedTo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.tags?.some((t) => t.toLowerCase().includes(searchTerm.toLowerCase()))
-
-    const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter
-    const matchesPriority = priorityFilter === 'ALL' || p.priority === priorityFilter
-    const matchesPortalLink =
-      portalLinkFilter === 'ALL' ||
-      (portalLinkFilter === 'LINKED' && p.client) ||
-      (portalLinkFilter === 'UNLINKED' && !p.client)
-    const matchesProjectType = projectTypeFilter === 'ALL' || (p.projectType || 'Website Development') === projectTypeFilter
-    const matchesClient = clientFilter === 'ALL' || p.clientName === clientFilter || p.clientId === clientFilter
-    const matchesHealth = healthFilter === 'ALL' || (p.health || 'ON_TRACK') === healthFilter
-
-    return matchesSearch && matchesStatus && matchesPriority && matchesPortalLink && matchesProjectType && matchesClient && matchesHealth
-  })
-
-  // Selected Client Summary for Client Profile Portfolio View
-  const selectedClientProjects = clientFilter !== 'ALL'
-    ? projects.filter((p) => p.clientName === clientFilter || p.clientId === clientFilter)
-    : []
-
-  // Summary Metrics
-  const totalOpenIssues = projects.reduce((acc, p) => acc + (p.issues?.filter((i) => i.status !== 'RESOLVED').length || 0), 0)
-
-  const stats = {
-    total: projects.length,
-    active: projects.filter((p) => p.status !== 'COMPLETED').length,
-    completed: projects.filter((p) => p.status === 'COMPLETED').length,
-    overdue: projects.filter((p) => {
-      if (p.status === 'COMPLETED') return false
-      return new Date(p.deadline) < new Date()
-    }).length,
-    openIssues: totalOpenIssues,
-  }
-
   return (
     <>
-      <SEO title="Client Projects Tracker & Vault" noIndex />
-      <div className="space-y-6 max-w-7xl mx-auto pb-12">
-        {/* ── Executive Dark Header Banner ────────────────────────── */}
-        <div className="bg-linear-to-r from-slate-900 via-gray-900 to-brand-blue p-6 sm:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-brand-blue/20 rounded-full blur-3xl pointer-events-none" />
+      <SEO
+        title="Client Projects Tracker & Vault — Admin"
+        description="Enterprise client project tracking, deliverables vault, SLA deadlines, and executive management reporting."
+      />
 
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shrink-0 shadow-inner">
-                <Briefcase className="w-7 h-7 text-blue-300" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">
-                    Client Projects Tracker &amp; Vault
-                  </h1>
-                  <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30 uppercase tracking-wider">
-                    Executive Portal
-                  </span>
-                </div>
-                <p className="text-gray-300 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
-                  Track daily development work, issues, new features, milestone deliverables, file vault assets, and generate management reports.
-                </p>
-              </div>
-            </div>
+      <div className="space-y-6 max-w-7xl mx-auto pb-16">
+        {/* ── Top Header Section ─────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200/80 pb-5">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-gray-900 tracking-tight flex items-center gap-2.5">
+              <span className="p-2 bg-brand-blue/10 text-brand-blue rounded-xl">
+                <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+              </span>
+              Client Projects Tracker &amp; Vault
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              Manage client projects, track deliverables, team attributions, and generate Boss reports for leadership.
+            </p>
+          </div>
 
-            {/* Header Controls: Boss Reports, Export & Add */}
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-              <button
-                onClick={() => setShowBossReport(true)}
-                className="px-4 py-2.5 bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
-                title="Open Executive Boss & Management Reporting Generator"
-              >
-                <BarChart3 className="w-4 h-4" />
-                <span>Boss Reports</span>
-              </button>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => refetch()}
+              className="p-2.5 text-gray-500 hover:text-brand-blue hover:bg-blue-50 rounded-xl border border-gray-200/80 transition-all cursor-pointer bg-white"
+              title="Refresh Projects"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
 
-              <button
-                onClick={() => {
-                  refetch()
-                  toast.info('Projects refreshed from database.')
-                }}
-                className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 text-white"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Refresh</span>
-              </button>
+            {/* Boss Reports Button */}
+            <button
+              onClick={() => setShowBossReportModal(true)}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+              title="Export Executive Report to Excel (CSV) or Print PDF"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Boss Reports (Excel / PDF)</span>
+            </button>
 
-              {projects.length > 0 && (
-                <button
-                  onClick={handleExportCSV}
-                  className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 text-white"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>CSV</span>
-                </button>
-              )}
-
-              {!showForm && !editing && (
-                <button
-                  onClick={() => {
-                    setShowForm(true)
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }}
-                  className="px-4 py-2.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Project</span>
-                </button>
-              )}
-            </div>
+            {/* Add New Project Button */}
+            <button
+              onClick={() => {
+                setEditing(null)
+                setShowForm(!showForm)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+              className="flex items-center gap-2 bg-brand-blue hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-brand-blue/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{showForm ? 'Close Form' : 'Add Project'}</span>
+            </button>
           </div>
         </div>
 
         {/* ── Summary Metric Stats Row ────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
-          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-gray-100 text-gray-700 border border-gray-200 flex items-center justify-center shrink-0">
               <FolderOpen className="w-5 h-5" />
             </div>
@@ -852,19 +765,19 @@ export default function AdminClientProjectsPage() {
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-brand-blue border border-blue-100 flex items-center justify-center shrink-0">
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Work</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Projects</p>
               <p className="text-xl font-extrabold font-heading text-brand-blue">
                 {isLoading ? '…' : stats.active}
               </p>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
               <FileCheck className="w-5 h-5" />
             </div>
@@ -876,7 +789,7 @@ export default function AdminClientProjectsPage() {
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-shadow">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
               stats.overdue > 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-gray-50 text-gray-400 border-gray-200'
             }`}>
@@ -886,20 +799,6 @@ export default function AdminClientProjectsPage() {
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Overdue SLA</p>
               <p className={`text-xl font-extrabold font-heading ${stats.overdue > 0 ? 'text-rose-600' : 'text-gray-900'}`}>
                 {isLoading ? '…' : stats.overdue}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3 hover:shadow-sm transition-shadow">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-              stats.openIssues > 0 ? 'bg-rose-50 text-rose-600 border-rose-200 ring-1 ring-rose-400/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
-            }`}>
-              <Bug className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Open Blockers</p>
-              <p className={`text-xl font-extrabold font-heading ${stats.openIssues > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                {isLoading ? '…' : stats.openIssues}
               </p>
             </div>
           </div>
@@ -939,388 +838,271 @@ export default function AdminClientProjectsPage() {
                   onAttachmentChange={handleAttachmentChange}
                 />
 
-                {/* Integrated Billing & Invoice Section for Existing Project (Bug fixed: projectId={editing.id}) */}
+                {/* Integrated Billing & Invoice Section for Existing Project */}
                 <div className="pt-6 border-t border-gray-200">
-                  <AdminBillingSection
-                    projectId={editing.id}
-                    clientProjectId={editing.id}
-                    currentRole="ADMIN"
-                  />
+                  <AdminBillingSection clientProjectId={editing.id} projectId={editing.id} clientProject={editing} />
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── Client Portfolio Summary Banner (When Filtered by Client) ── */}
-        {clientFilter !== 'ALL' && selectedClientProjects.length > 0 && (
-          <div className="bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200/80 p-5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fadeIn shadow-xs">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-brand-blue text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                <Building2 className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-extrabold text-gray-900">
-                    Client Profile: {clientFilter}
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-brand-blue border border-blue-200">
-                    {selectedClientProjects.length} Projects
-                  </span>
-                </div>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  Portfolio summary for client deliverables, active progress, and open issues.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs font-bold text-gray-700 shrink-0 flex-wrap">
-              <div className="bg-white px-3 py-1.5 rounded-xl border border-blue-100 shadow-2xs">
-                Active:{' '}
-                <span className="text-brand-blue">
-                  {selectedClientProjects.filter((p) => p.status !== 'COMPLETED').length}
-                </span>
-              </div>
-              <div className="bg-white px-3 py-1.5 rounded-xl border border-blue-100 shadow-2xs">
-                Completed:{' '}
-                <span className="text-emerald-600">
-                  {selectedClientProjects.filter((p) => p.status === 'COMPLETED').length}
-                </span>
-              </div>
-              <div className="bg-white px-3 py-1.5 rounded-xl border border-blue-100 shadow-2xs">
-                Avg Progress:{' '}
-                <span className="text-purple-700 font-mono">
-                  {Math.round(
-                    selectedClientProjects.reduce((acc, p) => acc + (p.progress || 0), 0) /
-                      selectedClientProjects.length
-                  )}
-                  %
-                </span>
-              </div>
-              <button
-                onClick={() => setClientFilter('ALL')}
-                className="text-xs text-brand-blue hover:underline cursor-pointer"
-              >
-                Clear Client Filter &times;
-              </button>
-            </div>
           </div>
         )}
 
         {/* ── Search & Filter Controls ───────────────────────────── */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search title, client business, assigned staff, or tags..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-9 py-2 text-xs sm:text-sm border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 font-medium"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Client Portfolio Filter */}
-            <select
-              value={clientFilter}
-              onChange={(e) => setClientFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none font-bold text-gray-700 shadow-xs cursor-pointer max-w-[160px]"
-            >
-              <option value="ALL">All Clients</option>
-              {[...new Set(projects.map((p) => p.clientName))].map((cName) => (
-                <option key={cName} value={cName}>
-                  {cName}
-                </option>
-              ))}
-            </select>
-
-            {/* Project Type Filter */}
-            <select
-              value={projectTypeFilter}
-              onChange={(e) => setProjectTypeFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none font-bold text-gray-700 shadow-xs cursor-pointer"
-            >
-              <option value="ALL">All Types</option>
-              {PROJECT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-
-            {/* Health Filter */}
-            <select
-              value={healthFilter}
-              onChange={(e) => setHealthFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none font-bold text-gray-700 shadow-xs cursor-pointer"
-            >
-              <option value="ALL">Health: All</option>
-              <option value="ON_TRACK">● On Track</option>
-              <option value="AT_RISK">● At Risk</option>
-              <option value="DELAYED">● Delayed</option>
-            </select>
-
-            {/* Priority Filter */}
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white focus:outline-none font-bold text-gray-700 shadow-xs cursor-pointer"
-            >
-              <option value="ALL">Priority: All</option>
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
-            </select>
-
-            {/* Reset Filters */}
-            {hasActiveFilters && (
-              <button
-                onClick={resetFilters}
-                className="px-3 py-2 text-xs font-bold text-brand-blue hover:text-blue-700 bg-blue-50 border border-blue-100 rounded-xl transition-all cursor-pointer"
-              >
-                Reset
-              </button>
-            )}
-
-            {/* Status Filter Tabs */}
-            <div className="flex overflow-x-auto gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200 shrink-0">
-              <button
-                onClick={() => setStatusFilter('ALL')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                  statusFilter === 'ALL'
-                    ? 'bg-white text-gray-900 shadow-xs'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                All
-              </button>
-              {STATUSES.map((s) => (
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs space-y-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search projects by title, client name, description, tags..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 text-xs sm:text-sm border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+              />
+              {searchTerm && (
                 <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                    statusFilter === s
-                      ? 'bg-white text-gray-900 shadow-xs'
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {STATUS_LABELS[s]}
+                  <X className="w-4 h-4" />
                 </button>
-              ))}
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Client Filter */}
+              <select
+                value={clientFilter}
+                onChange={(e) => setClientFilter(e.target.value)}
+                className="px-3 py-2 text-xs font-semibold border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none"
+              >
+                <option value="ALL">All Clients ({clients.length})</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 text-xs font-semibold border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none"
+              >
+                <option value="ALL">All Statuses</option>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+
+              {/* Priority Filter */}
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="px-3 py-2 text-xs font-semibold border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none"
+              >
+                <option value="ALL">All Priorities</option>
+                {PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+
+              {(searchTerm || statusFilter !== 'ALL' || priorityFilter !== 'ALL' || clientFilter !== 'ALL') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('')
+                    setStatusFilter('ALL')
+                    setPriorityFilter('ALL')
+                    setClientFilter('ALL')
+                  }}
+                  className="px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-100 font-semibold transition-all cursor-pointer"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Client Filter Banner if specific client is selected */}
+          {clientFilter !== 'ALL' && (
+            <div className="bg-blue-50/70 border border-blue-200/80 px-3.5 py-2 rounded-xl flex items-center justify-between text-xs text-brand-blue font-medium">
+              <span className="flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                Filtered by client:{' '}
+                <strong>
+                  {clients.find((c) => c.id === clientFilter)?.name || clientFilter}
+                </strong>{' '}
+                ({filteredProjects.length} project{filteredProjects.length === 1 ? '' : 's'})
+              </span>
+              <button
+                onClick={() => setClientFilter('ALL')}
+                className="text-[11px] underline hover:text-blue-800 cursor-pointer font-bold"
+              >
+                Show All
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* ── Main Projects Grid ─────────────────────────────────── */}
+        {/* ── Project Cards Grid ─────────────────────────────────── */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="bg-white rounded-3xl border border-gray-200/80 h-56 animate-pulse shadow-sm"
-              />
-            ))}
+          <div className="text-center py-16 bg-white rounded-3xl border border-gray-200/80 shadow-xs">
+            <RefreshCw className="w-8 h-8 text-brand-blue animate-spin mx-auto mb-3" />
+            <p className="text-sm font-bold text-gray-700">Loading client projects &amp; deliverables...</p>
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="text-center py-16 bg-white border border-gray-200/80 rounded-3xl shadow-xs">
-            <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm font-bold">
-              No client projects found matching current criteria.
+          <div className="text-center py-16 bg-white rounded-3xl border border-gray-200/80 shadow-xs space-y-3">
+            <FolderOpen className="w-12 h-12 text-gray-300 mx-auto" />
+            <p className="text-base font-bold text-gray-800">No projects found</p>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              {searchTerm || statusFilter !== 'ALL' || clientFilter !== 'ALL'
+                ? 'Try adjusting your filters or search keywords.'
+                : 'Click "Add Project" to start tracking your first client project.'}
             </p>
-            <button
-              onClick={resetFilters}
-              className="mt-3 px-4 py-2 bg-blue-50 text-brand-blue text-xs font-bold rounded-xl hover:bg-blue-100 transition-all cursor-pointer"
-            >
-              Clear Search &amp; Filters
-            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredProjects.map((p) => {
-              const deadlineStatus = getDeadlineText(p.deadline, p.status)
-              const projectOpenIssues = (p.issues || []).filter((i) => i.status !== 'RESOLVED').length
-              const tasksDone = (p.tasks || []).filter((t) => t.status === 'DONE').length
+              const deadlineStatus = calculateDaysLeft(p.deadline)
+              const typeObj = PROJECT_TYPES.find((t) => t.id === p.projectType) || { label: p.projectType || 'Custom' }
+              const tasksDone = (p.tasks || []).filter((t) => t.status === 'COMPLETED').length
               const totalTasks = (p.tasks || []).length
-              const logsCount = (p.dailyLogs || []).length
 
               return (
                 <div
                   key={p.id}
-                  className="bg-white rounded-3xl border border-gray-200/90 p-5 flex flex-col justify-between hover:shadow-lg hover:border-gray-300 hover:-translate-y-0.5 transition-all duration-200 relative group cursor-pointer"
-                  onClick={() => setWorkspaceProject(p)}
+                  className="bg-white rounded-2xl border border-gray-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between p-5 group hover:border-brand-blue/40"
                 >
                   <div>
-                    {/* Header tags: Status, Health & Priority */}
-                    <div
-                      className="flex items-center justify-between mb-3.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <select
-                          value={p.status}
-                          onChange={(e) => updateMutation.mutate({ id: p.id, status: e.target.value })}
-                          className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-lg border cursor-pointer focus:outline-none ${STATUS_COLORS[p.status]}`}
-                          title="Click to quick update project status"
+                    {/* Header Row: Title, Priority, Status */}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <h3
+                          onClick={() => setQuickViewProject(p)}
+                          className="font-extrabold font-heading text-sm sm:text-base text-gray-900 truncate hover:text-brand-blue transition-colors cursor-pointer"
+                          title={p.projectTitle}
                         >
-                          {STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                              {STATUS_LABELS[s]}
-                            </option>
-                          ))}
-                        </select>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${HEALTH_COLORS[p.health || 'ON_TRACK']}`}>
-                          ● {p.health === 'DELAYED' ? 'Delayed' : p.health === 'AT_RISK' ? 'At Risk' : 'On Track'}
-                        </span>
+                          {p.projectTitle}
+                        </h3>
+                        <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+                          <Building2 className="w-3 h-3 text-gray-400 shrink-0" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (p.clientId) setClientFilter(p.clientId)
+                            }}
+                            className="font-bold text-gray-700 hover:text-brand-blue truncate max-w-[170px] text-left underline decoration-gray-300 hover:decoration-brand-blue"
+                            title={`Filter projects by ${p.clientName}`}
+                          >
+                            {p.clientName}
+                          </button>
+                          {p.client && (
+                            <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-1 rounded font-bold shrink-0">
+                              Portal Linked
+                            </span>
+                          )}
+                        </p>
                       </div>
 
-                      <span
-                        className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${PRIORITY_COLORS[p.priority]}`}
-                      >
-                        {p.priority}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                        <span
+                          className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                            PRIORITY_COLORS[p.priority] || PRIORITY_COLORS.MEDIUM
+                          }`}
+                        >
+                          {p.priority}
+                        </span>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                            STATUS_COLORS[p.status] || STATUS_COLORS.PLANNING
+                          }`}
+                        >
+                          {STATUS_LABELS[p.status] || p.status}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Project Title */}
-                    <h3 className="font-extrabold font-heading text-gray-900 group-hover:text-brand-blue transition-colors text-base line-clamp-1">
-                      {p.projectTitle}
-                    </h3>
-
-                    {/* Client Name, Type & Portal Link Badge */}
-                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-500 font-bold mb-3 mt-1">
-                      <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      <span>{p.clientName}</span>
-                      <span className="text-[10px] font-semibold text-gray-600 bg-gray-100 px-1.5 py-0.2 rounded border border-gray-200">
-                        {p.projectType || 'Website'}
+                    {/* Sub-Badges Row: Project Type & Health */}
+                    <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                      <span className="text-[10px] font-semibold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-200">
+                        {typeObj.label}
                       </span>
-                      {p.client ? (
-                        <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-1.5 py-0.5 rounded font-extrabold" title={`Linked to client portal account: ${p.client.email}`}>
-                          Portal
-                        </span>
-                      ) : (
-                        <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold" title="Portal account unlinked">
-                          Unlinked
+                      {p.health && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                            HEALTH_COLORS[p.health] || HEALTH_COLORS.ON_TRACK
+                          }`}
+                        >
+                          {HEALTH_LABELS[p.health] || p.health}
                         </span>
                       )}
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="mb-4">
-                      <div className="flex justify-between items-center text-[11px] text-gray-500 font-bold mb-1">
-                        <span>Progress</span>
-                        <span className="text-gray-900 font-mono">{p.progress}%</span>
+                    <div className="space-y-1 mb-3">
+                      <div className="flex justify-between text-[11px] font-semibold">
+                        <span className="text-gray-500">Progress</span>
+                        <span className="font-mono font-bold text-gray-900">{p.progress}%</span>
                       </div>
-                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-150">
+                      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-gray-200/60">
                         <div
-                          className="h-full bg-linear-to-r from-brand-blue to-indigo-600 transition-all duration-300 rounded-full"
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            p.progress === 100
+                              ? 'bg-emerald-500'
+                              : p.progress >= 50
+                              ? 'bg-brand-blue'
+                              : 'bg-indigo-500'
+                          }`}
                           style={{ width: `${p.progress}%` }}
                         />
                       </div>
                     </div>
 
-                    {/* Project Intelligence Counters (Logs, Tasks, Issues, Vault) */}
-                    <div className="flex items-center gap-1.5 flex-wrap mb-3 text-[10px] font-bold">
-                      {logsCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-md bg-blue-50 text-brand-blue border border-blue-100 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {logsCount} Logs
-                        </span>
-                      )}
-                      {totalTasks > 0 && (
-                        <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100 flex items-center gap-1">
-                          <Layers className="w-3 h-3" />
-                          {tasksDone}/{totalTasks} Tasks
-                        </span>
-                      )}
-                      {projectOpenIssues > 0 ? (
-                        <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          {projectOpenIssues} Issues
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          No Blockers
-                        </span>
-                      )}
-                      {p.attachments && p.attachments.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 border border-gray-200 flex items-center gap-1">
-                          📎 {p.attachments.length} Files
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Timeline & Budget Info */}
-                    <div className="grid grid-cols-2 gap-2 text-xs border-y border-gray-100 py-3 mb-3">
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                        <div>
-                          <p className="text-[9px] text-gray-400 font-extrabold uppercase leading-none mb-0.5">
-                            Start Date
+                    {/* Assigned Staff & Budget Row */}
+                    <div className="flex items-center justify-between text-xs mb-3 bg-gray-50/60 p-2 rounded-xl border border-gray-100">
+                      <div className="flex items-center gap-1.5 text-gray-700 min-w-0">
+                        <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-[11px] truncate text-gray-900">
+                            {p.assignedTo || 'Unassigned'}
                           </p>
-                          <p className="font-bold text-gray-800 leading-none font-mono">
-                            {new Date(p.startDate).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                          </p>
+                          {p.assignedToEmail && (
+                            <a
+                              href={`mailto:${p.assignedToEmail}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[10px] text-gray-400 hover:text-brand-blue truncate block"
+                            >
+                              {p.assignedToEmail}
+                            </a>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <Clock className="w-4 h-4 text-gray-400 shrink-0" />
-                        <div>
-                          <p className="text-[9px] text-gray-400 font-extrabold uppercase leading-none mb-0.5">
-                            Deadline
-                          </p>
-                          <p className="font-bold text-gray-800 leading-none font-mono">
-                            {new Date(p.deadline).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Team Lead & Budget Footer */}
-                    <div className="flex items-center justify-between text-xs mb-3">
-                      <div className="flex items-center gap-1 text-gray-700">
-                        <User className="w-3.5 h-3.5 text-gray-400" />
-                        <span className="font-bold truncate max-w-[130px]" title={`Assigned Staff: ${p.assignedTo}`}>
-                          {p.assignedTo || 'Unassigned'}
-                        </span>
                       </div>
                       {p.budget && (
-                        <div className="flex items-center gap-1 text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
-                          <span>{p.budget}</span>
+                        <div className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 shrink-0">
+                          {p.budget}
                         </div>
                       )}
                     </div>
 
-                    {/* Deployment URLs quick links */}
+                    {/* Deployment URLs (Live, Staging, Repo) */}
                     {(p.liveUrl || p.stagingUrl || p.repoUrl) && (
-                      <div
-                        className="flex items-center gap-2 mb-3 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <div className="flex items-center gap-1.5 mb-3 flex-wrap text-[10px]">
                         {p.liveUrl && (
                           <a
                             href={p.liveUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-2 py-0.5 bg-blue-50 text-brand-blue hover:bg-blue-100 rounded-md text-[10px] font-bold flex items-center gap-1 border border-blue-100"
-                            title="Open Live Website"
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-2 py-0.5 bg-blue-50 text-brand-blue hover:bg-blue-100 rounded-md border border-blue-200 flex items-center gap-1 font-semibold transition-all"
+                            title={`Open Live Site: ${p.liveUrl}`}
                           >
-                            <Globe className="w-3 h-3" /> Live
+                            <Globe className="w-2.5 h-2.5" />
+                            Live Site
                           </a>
                         )}
                         {p.stagingUrl && (
@@ -1328,10 +1110,12 @@ export default function AdminClientProjectsPage() {
                             href={p.stagingUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-2 py-0.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-md text-[10px] font-bold flex items-center gap-1 border border-purple-100"
-                            title="Open Staging/Test Environment"
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-2 py-0.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-md border border-amber-200 flex items-center gap-1 font-semibold transition-all"
+                            title={`Open Staging: ${p.stagingUrl}`}
                           >
-                            <ExternalLink className="w-3 h-3" /> Staging
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            Staging
                           </a>
                         )}
                         {p.repoUrl && (
@@ -1339,26 +1123,66 @@ export default function AdminClientProjectsPage() {
                             href={p.repoUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-2 py-0.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md text-[10px] font-bold flex items-center gap-1 border border-gray-200"
-                            title="Open Git Code Repository"
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-2 py-0.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-md border border-purple-200 flex items-center gap-1 font-semibold transition-all"
+                            title={`Open Repo: ${p.repoUrl}`}
                           >
-                            <Code2 className="w-3 h-3" /> Git Repo
+                            <Code2 className="w-2.5 h-2.5" />
+                            Git Repo
                           </a>
                         )}
+                      </div>
+                    )}
+
+                    {/* Brief Description */}
+                    {p.description && (
+                      <p className="text-[11px] text-gray-600 line-clamp-2 bg-gray-50/50 p-2 rounded-xl border border-gray-100 mb-2 font-sans">
+                        {p.description}
+                      </p>
+                    )}
+
+                    {/* Tags */}
+                    {p.tags && p.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {p.tags.map((t) => (
+                          <span
+                            key={t}
+                            className="text-[9px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-md flex items-center gap-0.5 border border-gray-200"
+                          >
+                            <Tag className="w-2 h-2 text-gray-400" />
+                            {t}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>
 
                   {/* Card Actions Footer */}
-                  <div
-                    className="flex items-center justify-between mt-2 pt-3 border-t border-gray-100 flex-wrap gap-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span
-                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${deadlineStatus.color}`}
-                    >
-                      {deadlineStatus.text}
-                    </span>
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${deadlineStatus.color}`}
+                      >
+                        {deadlineStatus.text}
+                      </span>
+                      {p.attachments && p.attachments.length > 0 && (
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-brand-blue border border-blue-100 flex items-center gap-1"
+                          title="Files in Project Vault"
+                        >
+                          📎 {p.attachments.length}
+                        </span>
+                      )}
+                      {totalTasks > 0 && (
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-100 flex items-center gap-1"
+                          title="Tasks Completed / Total"
+                        >
+                          <Layers className="w-2.5 h-2.5" />
+                          {tasksDone}/{totalTasks}
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-1">
                       {p.client && (
@@ -1377,9 +1201,9 @@ export default function AdminClientProjectsPage() {
                         </button>
                       )}
                       <button
-                        onClick={() => setWorkspaceProject(p)}
+                        onClick={() => setQuickViewProject(p)}
                         className="text-gray-400 hover:text-brand-blue p-1.5 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
-                        title="Open 360° Project Intelligence & Daily Work Logs"
+                        title="View Full Project Details & Vault"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
@@ -1409,23 +1233,290 @@ export default function AdminClientProjectsPage() {
         )}
       </div>
 
-      {/* ── 360° Project Intelligence Workspace Drawer ─────────── */}
-      {workspaceProject && (
-        <ProjectWorkspaceDrawer
-          project={workspaceProject}
-          onClose={() => setWorkspaceProject(null)}
-          onEditFull={(p) => {
-            setEditing(p)
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
-          assignableTeam={assignableTeam}
-        />
+      {/* ── Quick View & Management Modal ─────────────────────── */}
+      {quickViewProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-7 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto border border-gray-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-gray-100 pb-4">
+              <div className="flex items-start gap-3">
+                <div className="p-3 bg-brand-blue/10 text-brand-blue rounded-2xl shrink-0 mt-1">
+                  <FolderOpen className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-lg sm:text-xl font-extrabold font-heading text-gray-900">
+                      {quickViewProject.projectTitle}
+                    </h3>
+                    <span
+                      className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                        STATUS_COLORS[quickViewProject.status]
+                      }`}
+                    >
+                      {STATUS_LABELS[quickViewProject.status]}
+                    </span>
+                    {quickViewProject.health && (
+                      <span
+                        className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+                          HEALTH_COLORS[quickViewProject.health] || HEALTH_COLORS.ON_TRACK
+                        }`}
+                      >
+                        {HEALTH_LABELS[quickViewProject.health] || quickViewProject.health}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                    <span className="flex items-center gap-1 font-semibold text-gray-700">
+                      <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                      Client: <strong>{quickViewProject.clientName}</strong>
+                    </span>
+                    {quickViewProject.client && (
+                      <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded font-bold">
+                        Portal Account Linked
+                      </span>
+                    )}
+                    <span className="text-gray-300">•</span>
+                    <span className="flex items-center gap-1 text-gray-600 font-medium">
+                      <User className="w-3.5 h-3.5 text-gray-400" />
+                      Assigned: <strong>{quickViewProject.assignedTo || 'Unassigned'}</strong>
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setQuickViewProject(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick KPI Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200/80">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Budget</p>
+                <p className="text-lg font-black text-gray-900 mt-0.5">{quickViewProject.budget || '₹ Custom'}</p>
+              </div>
+              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200/80">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Progress</p>
+                <p className="text-lg font-black text-brand-blue mt-0.5">{quickViewProject.progress}%</p>
+              </div>
+              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200/80">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Start Date</p>
+                <p className="text-xs font-bold text-gray-800 mt-1">
+                  {quickViewProject.startDate ? new Date(quickViewProject.startDate).toLocaleDateString('en-IN') : 'N/A'}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200/80">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Deadline</p>
+                <p className="text-xs font-bold text-gray-800 mt-1">
+                  {quickViewProject.deadline ? new Date(quickViewProject.deadline).toLocaleDateString('en-IN') : 'N/A'}
+                </p>
+              </div>
+            </div>
+
+            {/* Deployment & Repository Links */}
+            {(quickViewProject.liveUrl || quickViewProject.stagingUrl || quickViewProject.repoUrl) && (
+              <div className="flex items-center gap-2 flex-wrap bg-blue-50/40 p-3 rounded-2xl border border-blue-100 text-xs">
+                <span className="font-bold text-gray-700 mr-1 flex items-center gap-1">
+                  <span>🔗</span> Project Links:
+                </span>
+                {quickViewProject.liveUrl && (
+                  <a
+                    href={quickViewProject.liveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-white text-brand-blue hover:bg-blue-50 rounded-xl border border-blue-200 font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    Visit Live Site
+                  </a>
+                )}
+                {quickViewProject.stagingUrl && (
+                  <a
+                    href={quickViewProject.stagingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-white text-amber-700 hover:bg-amber-50 rounded-xl border border-amber-200 font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Staging Server
+                  </a>
+                )}
+                {quickViewProject.repoUrl && (
+                  <a
+                    href={quickViewProject.repoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-white text-purple-700 hover:bg-purple-50 rounded-xl border border-purple-200 font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                    GitHub Repository
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Scope & Confidential Notes */}
+            {quickViewProject.description && (
+              <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200 space-y-1">
+                <p className="text-xs font-bold text-gray-700">Project Overview &amp; Scope:</p>
+                <p className="text-xs text-gray-600 leading-relaxed">{quickViewProject.description}</p>
+              </div>
+            )}
+
+            {quickViewProject.notes && (
+              <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200/70 space-y-1">
+                <p className="text-xs font-bold text-amber-900">Confidential Internal Notes / Credentials:</p>
+                <p className="text-xs text-amber-800 leading-relaxed whitespace-pre-wrap">{quickViewProject.notes}</p>
+              </div>
+            )}
+
+            {/* In-Project Tasks Section */}
+            <div className="space-y-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-purple-600" />
+                  Deliverables &amp; Tasks ({(quickViewProject.tasks || []).length})
+                </h4>
+              </div>
+
+              {/* Task Add Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add a new deliverable task and press Enter..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newTaskTitle.trim()) {
+                      createTaskMutation.mutate({
+                        projectId: quickViewProject.id,
+                        title: newTaskTitle.trim(),
+                      })
+                    }
+                  }}
+                  className="flex-1 px-3.5 py-2 text-xs border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                />
+                <button
+                  type="button"
+                  disabled={!newTaskTitle.trim() || createTaskMutation.isPending}
+                  onClick={() => {
+                    if (newTaskTitle.trim()) {
+                      createTaskMutation.mutate({
+                        projectId: quickViewProject.id,
+                        title: newTaskTitle.trim(),
+                      })
+                    }
+                  }}
+                  className="px-4 py-2 bg-brand-blue text-white rounded-xl text-xs font-bold hover:bg-blue-600 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Add Task
+                </button>
+              </div>
+
+              {/* Tasks List */}
+              {(!quickViewProject.tasks || quickViewProject.tasks.length === 0) ? (
+                <p className="text-xs text-gray-400 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
+                  No tasks tracked yet. Add deliverables above to track progress.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {quickViewProject.tasks.map((task) => {
+                    const isDone = task.status === 'COMPLETED'
+                    return (
+                      <div
+                        key={task.id}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
+                          isDone
+                            ? 'bg-emerald-50/50 border-emerald-200/80 text-gray-500'
+                            : 'bg-gray-50/50 border-gray-200 text-gray-800'
+                        }`}
+                      >
+                        <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isDone}
+                            onChange={() =>
+                              toggleTaskMutation.mutate({
+                                taskId: task.id,
+                                status: isDone ? 'TODO' : 'COMPLETED',
+                              })
+                            }
+                            className="rounded border-gray-300 text-brand-blue focus:ring-brand-blue cursor-pointer"
+                          />
+                          <span className={`truncate font-medium ${isDone ? 'line-through text-gray-400' : ''}`}>
+                            {task.title}
+                          </span>
+                        </label>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ml-2 ${
+                            isDone
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : 'bg-gray-100 text-gray-600 border-gray-200'
+                          }`}
+                        >
+                          {isDone ? 'Done' : 'Pending'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Project Vault File Assets */}
+            <div className="space-y-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs">
+              <h4 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-brand-blue" />
+                Project Vault Files &amp; Documents ({quickViewProject.attachments?.length || 0})
+              </h4>
+              <AttachmentSection
+                attachments={quickViewProject.attachments || []}
+                clientProjectId={quickViewProject.id}
+                onUploadSuccess={() => {
+                  qc.invalidateQueries({ queryKey: ['admin-client-projects'] })
+                }}
+              />
+            </div>
+
+            {/* Milestone Billing Section */}
+            <div className="space-y-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs">
+              <AdminBillingSection
+                clientProjectId={quickViewProject.id}
+                projectId={quickViewProject.id}
+                clientProject={quickViewProject}
+              />
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setEditing(quickViewProject)
+                  setQuickViewProject(null)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                className="px-4 py-2 bg-brand-blue text-white text-xs font-bold rounded-xl hover:bg-blue-600 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Edit Full Project Details
+              </button>
+              <button
+                onClick={() => setQuickViewProject(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* ── Executive Boss / Management Reporting Modal ─────────── */}
+      {/* ── Boss Report Modal ────────────────────────────────────── */}
       <BossReportModal
-        isOpen={showBossReport}
-        onClose={() => setShowBossReport(false)}
+        isOpen={showBossReportModal}
+        onClose={() => setShowBossReportModal(false)}
         projects={projects}
         clients={clients}
       />
