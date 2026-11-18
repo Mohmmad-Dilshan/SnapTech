@@ -363,6 +363,15 @@ model ClientProject {
   repoUrl           String?
   credentialsNotes  String?
   health            String?            @default("ON_TRACK") // ON_TRACK | AT_RISK | DELAYED
+  devStage          String?            @default("PLANNING") // PLANNING | UI_UX_DESIGN | FRONTEND_DEV | BACKEND_DEV | TESTING_QA | CLIENT_REVIEW | DEPLOYMENT | COMPLETED
+  scopeFeatures     String?            // What is to be built / Scope & Features
+  changeRequests    String?            // New additions & client changes that took extra time
+  paymentStatus     String?            @default("PENDING") // PENDING | ADVANCE_PAID | PARTIAL | FULLY_PAID
+  paymentReceived   String?            // Amount received (e.g. ₹25,000)
+  paymentPending    String?            // Amount pending (e.g. ₹25,000)
+  paymentNotes      String?            // Payment milestone / timeline remarks
+  clientContact     String?            // Phone or Email of client
+  currentStatusNote String?            // Latest status scene / remarks for boss
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   tasks             WorkTask[]

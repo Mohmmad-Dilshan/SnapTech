@@ -79,6 +79,15 @@ export const createClientProject = async (req, res, next) => {
       repoUrl,
       credentialsNotes,
       health,
+      devStage,
+      scopeFeatures,
+      changeRequests,
+      paymentStatus,
+      paymentReceived,
+      paymentPending,
+      paymentNotes,
+      clientContact,
+      currentStatusNote,
     } = req.body
     if (!clientName || !projectTitle || !startDate || !deadline) {
       return res.status(400).json({
@@ -123,6 +132,15 @@ export const createClientProject = async (req, res, next) => {
         repoUrl: repoUrl || null,
         credentialsNotes: credentialsNotes || null,
         health: health || 'ON_TRACK',
+        devStage: devStage || 'PLANNING',
+        scopeFeatures: scopeFeatures || null,
+        changeRequests: changeRequests || null,
+        paymentStatus: paymentStatus || 'PENDING',
+        paymentReceived: paymentReceived || null,
+        paymentPending: paymentPending || null,
+        paymentNotes: paymentNotes || null,
+        clientContact: clientContact || null,
+        currentStatusNote: currentStatusNote || null,
       },
       include: {
         tasks: true,

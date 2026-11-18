@@ -1,6 +1,7 @@
 /**
- * AdminClientProjectsPage.jsx — Client Projects Tracker & Vault
- * Streamlined project management, team attribution, client linking, deliverables vault, SLA tracking, and Boss (Excel/PDF) reporting.
+ * AdminClientProjectsPage.jsx — Company Development Projects Tracker & Executive Reporting
+ * 
+ * Internal & Client Software Projects • Stage Lifecycles • Team Allocation • Commercials & Boss/Management Reports
  */
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -12,47 +13,64 @@ import {
   Check,
   Search,
   User,
-  Tag,
   Clock,
   FolderOpen,
   Eye,
   FileCheck,
   RefreshCw,
-  Send,
   Building2,
   FileSpreadsheet,
   Globe,
   ExternalLink,
   Code2,
   Layers,
+  Printer,
+  DollarSign,
+  AlertTriangle,
+  Sparkles,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { api } from '@/utils/api'
 import { SEO, ConfirmModal } from '@/components/ui'
 import AttachmentSection from '@/components/ui/AttachmentSection'
-import AdminBillingSection from '@/components/admin/AdminBillingSection'
-import BossReportModal from '@/components/admin/BossReportModal'
 import { useToast } from '@/components/ui/ToastProvider'
 
+// ── Development Stages ──────────────────────────────────────────
+const DEV_STAGES = [
+  { id: 'PLANNING', label: '1. Requirements & Planning', icon: '📋', color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { id: 'UI_UX_DESIGN', label: '2. UI/UX Design & Wireframes', icon: '🎨', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { id: 'FRONTEND_DEV', label: '3. Frontend Development', icon: '💻', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { id: 'BACKEND_DEV', label: '4. Backend & Database Engineering', icon: '⚙️', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { id: 'TESTING_QA', label: '5. Testing & Bug Fixing (QA)', icon: '🧪', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { id: 'CLIENT_REVIEW', label: '6. Client Demo & Feedback', icon: '🔍', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  { id: 'DEPLOYMENT', label: '7. Live Production Launch', icon: '🚀', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold' },
+  { id: 'COMPLETED', label: '8. Completed & Maintenance', icon: '✅', color: 'bg-teal-50 text-teal-700 border-teal-200 font-bold' },
+]
+
+const STAGE_MAP = DEV_STAGES.reduce((acc, s) => {
+  acc[s.id] = s
+  return acc
+}, {})
+
+// ── Project Types ───────────────────────────────────────────────
+const PROJECT_TYPES = [
+  { id: 'FULL_STACK', label: 'Full-Stack Web Application' },
+  { id: 'MOBILE_APP', label: 'Android & iOS Mobile App' },
+  { id: 'WEBSITE', label: 'Corporate Website' },
+  { id: 'ECOMMERCE', label: 'E-Commerce Platform' },
+  { id: 'ADMIN_PORTAL', label: 'Admin Panel / Internal CRM' },
+  { id: 'API_BACKEND', label: 'REST API & Cloud Services' },
+  { id: 'CUSTOM', label: 'Custom Software Solution' },
+]
+
+// ── Lifecycle & Health Constants ────────────────────────────────
 const STATUSES = ['PLANNING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'ON_HOLD']
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
-
-const PROJECT_TYPES = [
-  { id: 'WEBSITE', label: 'Website Development' },
-  { id: 'WEB_APP', label: 'Web Application' },
-  { id: 'MOBILE_APP', label: 'Mobile Application' },
-  { id: 'PORTAL', label: 'Client Portal' },
-  { id: 'ADMIN_PANEL', label: 'Admin Panel' },
-  { id: 'ECOMMERCE', label: 'E-Commerce Website' },
-  { id: 'BACKEND_API', label: 'API / Backend' },
-  { id: 'MAINTENANCE', label: 'Maintenance & Support' },
-  { id: 'CUSTOM', label: 'Other Custom Project' },
-]
 
 const STATUS_LABELS = {
   PLANNING: 'Planning',
   IN_PROGRESS: 'In Progress',
-  REVIEW: 'Review',
+  REVIEW: 'In Review / QA',
   COMPLETED: 'Completed',
   ON_HOLD: 'On Hold',
 }
@@ -84,20 +102,24 @@ const HEALTH_LABELS = {
   DELAYED: '🔴 Delayed',
 }
 
+const PAYMENT_STATUS_OPTIONS = [
+  { id: 'PENDING', label: '⏳ Payment Pending' },
+  { id: 'ADVANCE_PAID', label: '💰 Advance Received' },
+  { id: 'PARTIAL', label: '⚡ Partially Paid' },
+  { id: 'FULLY_PAID', label: '✅ Fully Paid' },
+]
+
 const inputCls =
   'w-full px-3.5 py-2.5 text-xs sm:text-sm border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all font-sans'
 
+// ── Project Add / Edit Form ─────────────────────────────────────
 function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange }) {
   const toast = useToast()
 
-  const { data: clients = [] } = useQuery({
-    queryKey: ['admin-clients-list-for-dropdown'],
-    queryFn: () => api.get('/admin/clients').then((r) => r.data),
-  })
-
-  const { data: assignableTeam = [] } = useQuery({
-    queryKey: ['admin-assignable-team-dropdown'],
-    queryFn: () => api.get('/admin/users/list-assignable').then((r) => r.data),
+  // Fetch assignable company team members for quick pills
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['admin-team-members-for-pills'],
+    queryFn: () => api.get('/admin/team').then((r) => r.data || []),
   })
 
   const formatDateForInput = (dateStr) => {
@@ -113,64 +135,94 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           ...initial,
           startDate: formatDateForInput(initial.startDate),
           deadline: formatDateForInput(initial.deadline),
-          tags: initial.tags ? initial.tags.join(', ') : '',
-          clientId: initial.clientId || '',
-          assignedTo: initial.assignedTo || '',
-          assignedToEmail: initial.assignedToEmail || '',
-          projectType: initial.projectType || 'CUSTOM',
+          tags: Array.isArray(initial.tags) ? initial.tags.join(', ') : initial.tags || '',
+          projectType: initial.projectType || 'FULL_STACK',
+          devStage: initial.devStage || 'PLANNING',
           health: initial.health || 'ON_TRACK',
+          status: initial.status || 'PLANNING',
+          priority: initial.priority || 'MEDIUM',
+          progress: initial.progress ?? 0,
+          clientContact: initial.clientContact || '',
+          assignedTo: initial.assignedTo || '',
+          budget: initial.budget || '',
+          paymentStatus: initial.paymentStatus || 'PENDING',
+          paymentReceived: initial.paymentReceived || '',
+          paymentPending: initial.paymentPending || '',
+          paymentNotes: initial.paymentNotes || '',
+          scopeFeatures: initial.scopeFeatures || initial.description || '',
+          changeRequests: initial.changeRequests || '',
+          currentStatusNote: initial.currentStatusNote || initial.notes || '',
           liveUrl: initial.liveUrl || '',
           stagingUrl: initial.stagingUrl || '',
           repoUrl: initial.repoUrl || '',
-          credentialsNotes: initial.credentialsNotes || '',
         }
       : {
-          clientName: '',
           projectTitle: '',
-          projectType: 'WEBSITE',
+          clientName: '',
+          clientContact: '',
+          projectType: 'FULL_STACK',
+          devStage: 'PLANNING',
           health: 'ON_TRACK',
-          description: '',
+          status: 'IN_PROGRESS',
+          priority: 'HIGH',
+          progress: 10,
           startDate: formatDateForInput(new Date()),
           deadline: '',
           assignedTo: '',
-          assignedToEmail: '',
           budget: '',
-          tags: '',
-          notes: '',
+          paymentStatus: 'ADVANCE_PAID',
+          paymentReceived: '',
+          paymentPending: '',
+          paymentNotes: '',
+          scopeFeatures: '',
+          changeRequests: '',
+          currentStatusNote: '',
+          tags: 'React, Node.js, PostgreSQL',
           liveUrl: '',
           stagingUrl: '',
           repoUrl: '',
-          credentialsNotes: '',
-          status: 'PLANNING',
-          priority: 'MEDIUM',
-          progress: 0,
-          clientId: '',
         },
   })
 
   const watchedProgress = watch('progress') || 0
+  const watchedDevStage = watch('devStage') || 'PLANNING'
+
+  const appendTeamMember = (memberName) => {
+    const current = getValues('assignedTo') || ''
+    if (!current) {
+      setValue('assignedTo', memberName)
+    } else if (!current.includes(memberName)) {
+      setValue('assignedTo', `${current}, ${memberName}`)
+    }
+  }
 
   const onSubmit = (data) => {
     const payload = {
       projectTitle: data.projectTitle,
       clientName: data.clientName,
-      projectType: data.projectType || 'CUSTOM',
+      clientContact: data.clientContact || '',
+      projectType: data.projectType || 'FULL_STACK',
+      devStage: data.devStage || 'PLANNING',
       health: data.health || 'ON_TRACK',
-      description: data.description || '',
+      status: data.status || 'IN_PROGRESS',
+      priority: data.priority || 'MEDIUM',
+      progress: parseInt(data.progress || 0, 10),
       startDate: data.startDate,
       deadline: data.deadline,
       assignedTo: data.assignedTo || '',
-      assignedToEmail: data.assignedToEmail || '',
       budget: data.budget || '',
+      paymentStatus: data.paymentStatus || 'PENDING',
+      paymentReceived: data.paymentReceived || '',
+      paymentPending: data.paymentPending || '',
+      paymentNotes: data.paymentNotes || '',
+      scopeFeatures: data.scopeFeatures || '',
+      description: data.scopeFeatures || '',
+      changeRequests: data.changeRequests || '',
+      currentStatusNote: data.currentStatusNote || '',
+      notes: data.currentStatusNote || '',
       liveUrl: data.liveUrl || '',
       stagingUrl: data.stagingUrl || '',
       repoUrl: data.repoUrl || '',
-      credentialsNotes: data.credentialsNotes || '',
-      notes: data.notes || '',
-      status: data.status || 'PLANNING',
-      priority: data.priority || 'MEDIUM',
-      progress: parseInt(data.progress || 0),
-      clientId: data.clientId || null,
       tags: data.tags
         ? typeof data.tags === 'string'
           ? data.tags.split(',').map((t) => t.trim()).filter(Boolean)
@@ -187,11 +239,15 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
 
   return (
     <form onSubmit={handleSubmit(onSubmit, onFormError)} className="space-y-6">
-      {/* Section 1: Core Client & Project Identification */}
-      <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
-        <p className="text-xs font-bold text-brand-blue uppercase tracking-wider flex items-center gap-2">
-          <span>📋</span> 1. Core Identification &amp; Client Account
-        </p>
+      {/* ── CARD 1: Core Project & Client Identity ──────────────── */}
+      <div className="bg-gray-50/70 p-5 sm:p-6 rounded-2xl border border-gray-200 space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-brand-blue uppercase tracking-wider flex items-center gap-2">
+            <span>📌</span> 1. Project &amp; Client Identity
+          </p>
+          <span className="text-[10px] text-gray-400 font-mono">* Required fields</span>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
@@ -200,9 +256,10 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
             <input
               {...register('projectTitle', { required: true })}
               className={inputCls}
-              placeholder="e.g. Corporate Website & Client Portal"
+              placeholder="e.g. Freshinbasket — Grocery Mobile App & Admin Portal"
             />
           </div>
+
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
               Project Type
@@ -215,107 +272,33 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
               ))}
             </select>
           </div>
+
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Client Business / Name *
+              Client / Company Name *
             </label>
             <input
               {...register('clientName', { required: true })}
               className={inputCls}
-              placeholder="e.g. Ramesh Textiles Pvt Ltd"
+              placeholder="e.g. Freshinbasket Pvt Ltd (or Internal / Hindustan)"
             />
           </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Link Client Portal Account (Optional)
-            </label>
-            <select
-              {...register('clientId')}
-              className={inputCls}
-              onChange={(e) => {
-                const selectedId = e.target.value
-                setValue('clientId', selectedId)
-                if (selectedId) {
-                  const matchedClient = clients.find((c) => c.id === selectedId)
-                  if (matchedClient && !getValues('clientName')) {
-                    setValue('clientName', matchedClient.name)
-                  }
-                }
-              }}
-            >
-              <option value="">-- No Client Portal Account linked --</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.email})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Assigned Staff / Team Member
-            </label>
-            <select
-              className={inputCls}
-              value={
-                watch('assignedTo') && watch('assignedToEmail')
-                  ? `${watch('assignedTo')}||${watch('assignedToEmail')}`
-                  : watch('assignedTo') || ''
-              }
-              onChange={(e) => {
-                const selectedVal = e.target.value
-                const parts = selectedVal.split('||')
-                const nameVal = parts[0] || ''
-                const emailVal = parts[1] || ''
-                setValue('assignedTo', nameVal)
-                setValue('assignedToEmail', emailVal)
-              }}
-            >
-              <option value="">-- Unassigned --</option>
-              {assignableTeam.map((m) => {
-                const displayName = m.name || m.email.split('@')[0].toUpperCase()
-                const roleLabel = m.role === 'SUPER_ADMIN' ? 'Super Admin' : m.role === 'ADMIN' ? 'Admin' : 'Staff'
-                const optValue = `${displayName}||${m.email}`
-                return (
-                  <option key={m.id} value={optValue}>
-                    👤 {displayName} ({m.email}) — [{roleLabel}]
-                  </option>
-                )
-              })}
-            </select>
-            <input type="hidden" {...register('assignedToEmail')} />
-          </div>
-        </div>
-      </div>
 
-      {/* Section 2: Financial Budget & Schedule */}
-      <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
-        <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-          <span>💵</span> 2. Financial Budget &amp; Project Schedule
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Budget (₹)</label>
-            <input {...register('budget')} className={inputCls} placeholder="e.g. ₹75,000" />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Start Date *</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Client Contact / Phone / Email
+            </label>
             <input
-              type="date"
-              {...register('startDate', { required: true })}
+              {...register('clientContact')}
               className={inputCls}
+              placeholder="e.g. +91 98765 43210 / client@email.com"
             />
           </div>
+
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Deadline *</label>
-            <input
-              type="date"
-              {...register('deadline', { required: true })}
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Priority Level</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Priority
+            </label>
             <select {...register('priority')} className={inputCls}>
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>
@@ -327,14 +310,83 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
         </div>
       </div>
 
-      {/* Section 3: Status, Health & Progress */}
-      <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
-        <p className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-2">
-          <span>📈</span> 3. Lifecycle Status, Health &amp; Progress
+      {/* ── CARD 2: Team Members & Developers ("Kaun Kaun Kaam Kar Raha Hai") ── */}
+      <div className="bg-gray-50/70 p-5 sm:p-6 rounded-2xl border border-gray-200 space-y-4">
+        <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
+          <span>👥</span> 2. Assigned Team Members &amp; Developers ("Kaun Kaun Kaam Kar Raha Hai")
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+        <div>
+          <label className="text-xs font-bold text-gray-700 block mb-1.5">
+            Team Members Working on This Project
+          </label>
+          <input
+            {...register('assignedTo')}
+            className={inputCls}
+            placeholder="Type names and roles: e.g. Aman (Full Stack Lead), Priya (UI/UX), Rohit (Backend), Mohit (QA)"
+          />
+          <p className="text-[11px] text-gray-500 mt-1">
+            Tip: Type developer names directly or click company team pills below to insert them:
+          </p>
+        </div>
+
+        {teamMembers && teamMembers.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              Quick Add Staff:
+            </span>
+            {teamMembers.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => appendTeamMember(`${m.name || m.email.split('@')[0]} (${m.role || 'Developer'})`)}
+                className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-white hover:bg-indigo-50 text-gray-700 hover:text-indigo-700 border border-gray-200 transition-all cursor-pointer shadow-2xs"
+              >
+                + {m.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── CARD 3: Development Stage & Progress Timeline ─────────── */}
+      <div className="bg-gray-50/70 p-5 sm:p-6 rounded-2xl border border-gray-200 space-y-4">
+        <p className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-2">
+          <span>⚡</span> 3. Development Process Stage &amp; Timeline
+        </p>
+
+        {/* Visual Stage Selector */}
+        <div>
+          <label className="text-xs font-bold text-gray-700 block mb-2">
+            Current Development Stage:
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {DEV_STAGES.map((s) => {
+              const isSelected = watchedDevStage === s.id
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setValue('devStage', s.id)}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                    isSelected
+                      ? 'bg-brand-blue text-white border-brand-blue shadow-sm font-bold'
+                      : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200 text-xs'
+                  }`}
+                >
+                  <span className="text-base shrink-0">{s.icon}</span>
+                  <span className="text-[11px] leading-tight font-medium">{s.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Lifecycle Status</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Lifecycle Status
+            </label>
             <select {...register('status')} className={inputCls}>
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -343,73 +395,204 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
               ))}
             </select>
           </div>
+
           <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">Project Health</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Project Health
+            </label>
             <select {...register('health')} className={inputCls}>
               <option value="ON_TRACK">🟢 On Track</option>
               <option value="AT_RISK">🟡 At Risk</option>
               <option value="DELAYED">🔴 Delayed</option>
             </select>
           </div>
+
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Tags (Comma Separated)
+              Start Date *
             </label>
-            <input {...register('tags')} className={inputCls} placeholder="React, Node, UI/UX" />
+            <input
+              type="date"
+              {...register('startDate', { required: true })}
+              className={inputCls}
+            />
           </div>
 
-          <div className="sm:col-span-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
-            <div className="flex justify-between items-center text-xs font-bold text-gray-800 flex-wrap gap-2">
-              <span className="flex items-center gap-1.5">
-                <span>🎯</span> Completion Progress Tracker
-              </span>
-              <div className="flex items-center gap-1.5">
-                {[0, 25, 50, 75, 100].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setValue('progress', preset)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                      Number(watchedProgress) === preset
-                        ? 'bg-brand-blue text-white border-brand-blue shadow-xs'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    {preset}%
-                  </button>
-                ))}
-                <span className="px-2.5 py-0.5 rounded-full bg-brand-blue text-white font-mono font-bold text-[11px] ml-1 shadow-xs">
-                  {watchedProgress}%
-                </span>
-              </div>
-            </div>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Target Deadline *
+            </label>
+            <input
+              type="date"
+              {...register('deadline', { required: true })}
+              className={inputCls}
+            />
+          </div>
+        </div>
 
-            <div className="relative pt-1">
-              <div className="overflow-hidden h-3 text-xs flex rounded-full bg-gray-100 border border-gray-200 shadow-inner">
-                <div
-                  style={{ width: `${watchedProgress}%` }}
-                  className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-brand-blue transition-all duration-300 rounded-full"
-                />
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                {...register('progress')}
-                className="w-full h-3 opacity-0 cursor-pointer absolute top-1 left-0 z-10"
-                title="Slide to change project completion progress"
+        {/* Progress Slider */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-2">
+          <div className="flex justify-between items-center text-xs font-bold text-gray-800 flex-wrap gap-2">
+            <span>🎯 Overall Completion Progress</span>
+            <div className="flex items-center gap-1.5">
+              {[0, 25, 50, 75, 100].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setValue('progress', preset)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                    Number(watchedProgress) === preset
+                      ? 'bg-brand-blue text-white border-brand-blue shadow-xs'
+                      : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  {preset}%
+                </button>
+              ))}
+              <span className="px-2.5 py-0.5 rounded-full bg-brand-blue text-white font-mono font-bold text-xs ml-1">
+                {watchedProgress}%
+              </span>
+            </div>
+          </div>
+
+          <div className="relative pt-1">
+            <div className="overflow-hidden h-3 text-xs flex rounded-full bg-gray-100 border border-gray-200">
+              <div
+                style={{ width: `${watchedProgress}%` }}
+                className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-brand-blue transition-all duration-300 rounded-full"
               />
             </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              {...register('progress')}
+              className="w-full h-3 opacity-0 cursor-pointer absolute top-1 left-0 z-10"
+              title="Slide to change project completion progress"
+            />
           </div>
         </div>
       </div>
 
-      {/* Section 4: Live, Staging & Repository URLs */}
-      <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
-        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-2">
-          <span>🔗</span> 4. Deployment URLs &amp; Git Repository
+      {/* ── CARD 4: Scope Features & Changes ("Kya Kya Banana Hai" & "New Kya Add Hua") ── */}
+      <div className="bg-gray-50/70 p-5 sm:p-6 rounded-2xl border border-gray-200 space-y-4">
+        <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
+          <span>📝</span> 4. Scope &amp; Client Changes ("Kya Kya Banana Hai" aur "New Kya Add Hua")
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              What Needs to be Built ("Kya Kya Banana Hai" — Core Features &amp; Deliverables)
+            </label>
+            <textarea
+              rows={4}
+              {...register('scopeFeatures')}
+              className={`${inputCls} resize-none font-sans`}
+              placeholder="- User authentication &amp; profile&#10;- Product catalog &amp; live cart&#10;- Admin analytics dashboard&#10;- Razorpay &amp; Cash on Delivery checkout&#10;- Automated email &amp; SMS receipts"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-amber-800 block mb-1.5 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              New Additions by Client ("New Kya Add Karwaya Jisse Time Laga")
+            </label>
+            <textarea
+              rows={4}
+              {...register('changeRequests')}
+              className={`${inputCls} resize-none bg-amber-50/40 border-amber-200/80 focus:bg-white font-sans`}
+              placeholder="e.g. Client requested WhatsApp OTP login and Multi-currency payouts on 10th Nov (+7 days added to delivery deadline)."
+            />
+            <p className="text-[10px] text-amber-700 mt-1">
+              Important for management reports to show why extra days were required!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CARD 5: Commercials, Status Remarks & Links ─────────── */}
+      <div className="bg-gray-50/70 p-5 sm:p-6 rounded-2xl border border-gray-200 space-y-4">
+        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-2">
+          <span>💰</span> 5. Commercials, Payment Status &amp; Current Scene ("Kya Scene Hai")
+        </p>
+
+        {/* Commercials Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Total Project Budget
+            </label>
+            <input
+              {...register('budget')}
+              className={inputCls}
+              placeholder="e.g. ₹75,000"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Payment Status
+            </label>
+            <select {...register('paymentStatus')} className={inputCls}>
+              {PAYMENT_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Amount Received
+            </label>
+            <input
+              {...register('paymentReceived')}
+              className={inputCls}
+              placeholder="e.g. ₹35,000"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1.5">
+              Amount Pending
+            </label>
+            <input
+              {...register('paymentPending')}
+              className={inputCls}
+              placeholder="e.g. ₹40,000"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-bold text-gray-700 block mb-1.5">
+            Payment Milestone / Terms Notes
+          </label>
+          <input
+            {...register('paymentNotes')}
+            className={inputCls}
+            placeholder="e.g. 50% advance received, 50% on live launch sign-off"
+          />
+        </div>
+
+        {/* Current Status Scene Notes */}
+        <div>
+          <label className="text-xs font-bold text-gray-800 block mb-1.5 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-brand-blue" />
+            Current Project Scene &amp; Latest Remarks ("Konse Project Ka Kya Scene Hai")
+          </label>
+          <textarea
+            rows={3}
+            {...register('currentStatusNote')}
+            className={`${inputCls} resize-none bg-blue-50/20 border-blue-200/60 focus:bg-white`}
+            placeholder="e.g. Frontend 90% completed. Backend APIs connected. Testing payment gateway today. Client staging demo this Friday."
+          />
+        </div>
+
+        {/* Technical Links */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center gap-1">
               <Globe className="w-3.5 h-3.5 text-blue-500" /> Live Website URL
@@ -418,55 +601,35 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
           </div>
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center gap-1">
-              <ExternalLink className="w-3.5 h-3.5 text-amber-500" /> Staging URL
+              <ExternalLink className="w-3.5 h-3.5 text-amber-500" /> Staging Demo URL
             </label>
             <input {...register('stagingUrl')} className={inputCls} placeholder="https://staging.clientdomain.com" />
           </div>
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1.5 flex items-center gap-1">
-              <Code2 className="w-3.5 h-3.5 text-purple-500" /> Repository URL
+              <Code2 className="w-3.5 h-3.5 text-purple-500" /> Git Repository URL
             </label>
             <input {...register('repoUrl')} className={inputCls} placeholder="https://github.com/org/repo" />
           </div>
         </div>
-      </div>
 
-      {/* Section 5: Description, Credentials & Confidential Notes */}
-      <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
-        <p className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-2">
-          <span>📝</span> 5. Project Brief &amp; Confidential Internal Notes
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Client-Visible Project Brief / Scope
-            </label>
-            <textarea
-              rows={3}
-              {...register('description')}
-              className={`${inputCls} resize-none`}
-              placeholder="Overview of project deliverables, features, tech stack..."
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1.5">
-              Confidential Internal Admin Notes / Credentials
-            </label>
-            <textarea
-              rows={3}
-              {...register('notes')}
-              className={`${inputCls} resize-none bg-amber-50/30 border-amber-200/60 focus:bg-white`}
-              placeholder="Internal credentials, hosting access, payment agreements, team notes..."
-            />
-          </div>
+        <div>
+          <label className="text-xs font-bold text-gray-700 block mb-1.5">
+            Tech Stack Tags (Comma Separated)
+          </label>
+          <input
+            {...register('tags')}
+            className={inputCls}
+            placeholder="React, Next.js, Node.js, PostgreSQL, Tailwind"
+          />
         </div>
       </div>
 
-      {/* Section 6: Attachment File Vault (If Editing Existing Project) */}
+      {/* ── CARD 6: File Vault Attachments (When Editing) ───────── */}
       {initial && (
-        <div className="bg-gray-50/60 p-5 rounded-2xl border border-gray-200/80 space-y-4">
-          <p className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-2">
-            <span>📎</span> 6. Project Vault File Attachments &amp; Assets
+        <div className="bg-gray-50/70 p-5 rounded-2xl border border-gray-200 space-y-4">
+          <p className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
+            <span>📎</span> 6. Project Vault Attachments &amp; Documents
           </p>
           <AttachmentSection
             attachments={initial.attachments}
@@ -476,7 +639,7 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
         </div>
       )}
 
-      {/* Form Submit & Cancel Controls */}
+      {/* Form Buttons */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
         <button
           type="button"
@@ -488,16 +651,374 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center gap-2 bg-brand-blue hover:bg-blue-600 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-brand-blue/20 hover:-translate-y-0.5 transition-all disabled:opacity-60 cursor-pointer"
+          className="flex items-center gap-2 bg-brand-blue hover:bg-blue-600 text-white px-7 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-brand-blue/20 hover:-translate-y-0.5 transition-all disabled:opacity-60 cursor-pointer"
         >
           <Check className="w-4 h-4" />
-          <span>{loading ? 'Saving Changes...' : 'Save & Publish Project'}</span>
+          <span>{loading ? 'Saving Changes...' : initial ? 'Update Project' : 'Save & Track Project'}</span>
         </button>
       </div>
     </form>
   )
 }
 
+// ── Single Project Printable Sheet Modal ─────────────────────────
+function PrintSingleProjectModal({ project, onClose }) {
+  if (!project) return null
+
+  const stageObj = STAGE_MAP[project.devStage] || DEV_STAGES[0]
+  const typeObj = PROJECT_TYPES.find((t) => t.id === project.projectType) || { label: project.projectType || 'Software' }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-0">
+        {/* Print Controls Header (Hidden during actual print) */}
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden">
+          <div className="flex items-center gap-2">
+            <span className="p-2 bg-brand-blue/10 text-brand-blue rounded-xl">
+              <Printer className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="text-base font-extrabold text-gray-900">Project Status Sheet</h3>
+              <p className="text-xs text-gray-500">Executive summary for management &amp; client records</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 bg-brand-blue hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print / Save as PDF</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Printable Document Body */}
+        <div className="space-y-6 text-gray-900 font-sans print:space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-4">
+            <div>
+              <h1 className="text-2xl font-black text-brand-blue tracking-tight">SnapTech Digital</h1>
+              <p className="text-xs text-gray-500 mt-0.5">Software Engineering &bull; Digital Solutions Studio</p>
+            </div>
+            <div className="text-right text-xs">
+              <span className="px-2.5 py-1 bg-gray-100 font-bold rounded-lg border border-gray-200 text-gray-800">
+                PROJECT STATUS BRIEF
+              </span>
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Report Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
+
+          {/* Title & Core Grid */}
+          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-black text-gray-900">{project.projectTitle}</h2>
+                <p className="text-xs text-gray-600 font-medium mt-1">
+                  Client: <strong className="text-gray-900">{project.clientName}</strong>
+                  {project.clientContact && ` • ${project.clientContact}`}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-xs font-bold px-2 py-0.5 rounded border bg-white text-gray-800">
+                  {typeObj.label}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-gray-200/80 text-xs">
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Current Stage</span>
+                <span className="font-bold text-brand-blue">{stageObj.label}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Progress</span>
+                <span className="font-extrabold text-emerald-600">{project.progress}% Complete</span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Health &amp; Status</span>
+                <span className="font-bold">{HEALTH_LABELS[project.health] || 'On Track'} &bull; {STATUS_LABELS[project.status]}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Deadline</span>
+                <span className="font-bold text-gray-900">
+                  {project.deadline ? new Date(project.deadline).toLocaleDateString('en-IN') : 'N/A'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Team Assigned */}
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
+              👥 Assigned Developers &amp; Team
+            </h4>
+            <p className="text-sm font-bold text-gray-900">
+              {project.assignedTo || 'Unassigned / Core Team'}
+            </p>
+          </div>
+
+          {/* Current Status Scene */}
+          <div className="bg-blue-50/40 p-4 rounded-2xl border border-blue-200/80 space-y-1">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-brand-blue">
+              📍 Current Scene &amp; Latest Status
+            </h4>
+            <p className="text-xs text-gray-800 font-medium whitespace-pre-wrap leading-relaxed">
+              {project.currentStatusNote || project.notes || 'Project is proceeding as per schedule.'}
+            </p>
+          </div>
+
+          {/* Scope Features vs Changes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
+                📝 Agreed Scope &amp; Deliverables
+              </h4>
+              <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {project.scopeFeatures || project.description || 'Deliverables as per work agreement.'}
+              </p>
+            </div>
+
+            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-200 space-y-1">
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                <span>⚠️</span> Client Change Requests / Additions
+              </h4>
+              <p className="text-xs text-amber-950 whitespace-pre-wrap leading-relaxed">
+                {project.changeRequests || 'No additional change requests recorded.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Commercials Summary */}
+          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 mb-2">
+              💰 Financials &amp; Payment Status
+            </h4>
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Total Budget</span>
+                <span className="font-extrabold text-base text-gray-900">{project.budget || '₹ Custom'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Received</span>
+                <span className="font-extrabold text-base text-emerald-600">{project.paymentReceived || '—'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Pending</span>
+                <span className="font-extrabold text-base text-amber-600">{project.paymentPending || '—'}</span>
+              </div>
+            </div>
+            {project.paymentNotes && (
+              <p className="text-[11px] text-gray-500 mt-2 border-t border-gray-200 pt-1.5">
+                Notes: {project.paymentNotes}
+              </p>
+            )}
+          </div>
+
+          {/* Technical Links */}
+          {(project.liveUrl || project.stagingUrl || project.repoUrl) && (
+            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex items-center gap-4 text-xs flex-wrap">
+              <span className="font-bold text-gray-500">Links:</span>
+              {project.liveUrl && (
+                <span className="text-brand-blue font-mono text-[11px]">Live: {project.liveUrl}</span>
+              )}
+              {project.stagingUrl && (
+                <span className="text-amber-700 font-mono text-[11px]">Demo: {project.stagingUrl}</span>
+              )}
+              {project.repoUrl && (
+                <span className="text-purple-700 font-mono text-[11px]">Repo: {project.repoUrl}</span>
+              )}
+            </div>
+          )}
+
+          {/* Print Footer */}
+          <div className="pt-4 border-t border-gray-200 flex justify-between items-center text-[10px] text-gray-400">
+            <p>SnapTech Digital &bull; Confidential Management Documentation</p>
+            <p>Printed by Project Lead / Management</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Master Portfolio Printable Report Modal (Print All Projects) ─
+function PrintMasterReportModal({ projects = [], onClose }) {
+  if (!projects) return null
+
+  const stats = {
+    total: projects.length,
+    active: projects.filter((p) => p.status === 'IN_PROGRESS' || p.status === 'PLANNING').length,
+    review: projects.filter((p) => p.status === 'REVIEW').length,
+    completed: projects.filter((p) => p.status === 'COMPLETED').length,
+    overdue: projects.filter((p) => {
+      if (!p.deadline || p.status === 'COMPLETED') return false
+      return new Date(p.deadline) < new Date()
+    }).length,
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-0">
+        {/* Controls Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden">
+          <div className="flex items-center gap-2">
+            <span className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+              <Printer className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="text-base font-extrabold text-gray-900">Company Master Development Report</h3>
+              <p className="text-xs text-gray-500">Executive multi-project status report for Boss &amp; Management</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print / Save as PDF</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Printable Master Report Body */}
+        <div className="space-y-6 text-gray-900 font-sans print:space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-4">
+            <div>
+              <h1 className="text-2xl font-black text-brand-blue tracking-tight">SnapTech Digital</h1>
+              <p className="text-xs text-gray-500 mt-0.5">Software Development &bull; Engineering Status Report</p>
+            </div>
+            <div className="text-right text-xs">
+              <span className="px-2.5 py-1 bg-gray-100 font-bold rounded-lg border border-gray-200 text-gray-800">
+                EXECUTIVE MANAGEMENT REPORT
+              </span>
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Generated: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
+
+          {/* Executive KPI Summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-center">
+              <span className="text-[10px] font-bold text-gray-400 uppercase block">Total Projects</span>
+              <span className="text-xl font-black text-gray-900">{stats.total}</span>
+            </div>
+            <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200 text-center">
+              <span className="text-[10px] font-bold text-brand-blue uppercase block">In Development</span>
+              <span className="text-xl font-black text-brand-blue">{stats.active}</span>
+            </div>
+            <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 text-center">
+              <span className="text-[10px] font-bold text-amber-700 uppercase block">In Review / QA</span>
+              <span className="text-xl font-black text-amber-700">{stats.review}</span>
+            </div>
+            <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200 text-center">
+              <span className="text-[10px] font-bold text-emerald-700 uppercase block">Completed</span>
+              <span className="text-xl font-black text-emerald-700">{stats.completed}</span>
+            </div>
+            <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200 text-center">
+              <span className="text-[10px] font-bold text-rose-700 uppercase block">Overdue SLA</span>
+              <span className={`text-xl font-black ${stats.overdue > 0 ? 'text-rose-700' : 'text-gray-400'}`}>
+                {stats.overdue}
+              </span>
+            </div>
+          </div>
+
+          {/* Master Table */}
+          <div className="overflow-x-auto border border-gray-200 rounded-xl">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead className="bg-gray-100 text-gray-700 uppercase tracking-wider text-[10px] font-bold border-b border-gray-200">
+                <tr>
+                  <th className="p-2.5">#</th>
+                  <th className="p-2.5">Project Title</th>
+                  <th className="p-2.5">Client</th>
+                  <th className="p-2.5">Dev Stage</th>
+                  <th className="p-2.5">Assigned Team</th>
+                  <th className="p-2.5">Progress</th>
+                  <th className="p-2.5">Deadline</th>
+                  <th className="p-2.5">Budget / Payment</th>
+                  <th className="p-2.5">Current Scene / Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-150">
+                {projects.map((p, idx) => {
+                  const stage = STAGE_MAP[p.devStage] || DEV_STAGES[0]
+                  return (
+                    <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="p-2.5 font-bold text-gray-400">{idx + 1}</td>
+                      <td className="p-2.5 font-bold text-gray-900 max-w-[180px]">
+                        {p.projectTitle}
+                      </td>
+                      <td className="p-2.5 text-gray-700 font-medium">{p.clientName}</td>
+                      <td className="p-2.5">
+                        <span className="px-1.5 py-0.5 rounded font-bold text-[10px] bg-blue-50 text-brand-blue border border-blue-200">
+                          {stage.label.split('. ')[1] || stage.label}
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-gray-600 max-w-[140px] truncate" title={p.assignedTo}>
+                        {p.assignedTo || 'Unassigned'}
+                      </td>
+                      <td className="p-2.5 font-mono font-bold text-brand-blue">{p.progress}%</td>
+                      <td className="p-2.5 whitespace-nowrap">
+                        {p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : 'N/A'}
+                      </td>
+                      <td className="p-2.5 whitespace-nowrap">
+                        <span className="font-bold text-gray-900 block">{p.budget || '—'}</span>
+                        <span className="text-[10px] text-gray-500">
+                          {p.paymentReceived ? `Rec: ${p.paymentReceived}` : p.paymentStatus}
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-[11px] text-gray-700 max-w-[220px]">
+                        <p className="line-clamp-2">{p.currentStatusNote || p.notes || '—'}</p>
+                        {p.changeRequests && (
+                          <p className="text-[10px] text-amber-700 font-bold mt-0.5 line-clamp-1">
+                            +Scope: {p.changeRequests}
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer */}
+          <div className="pt-4 border-t border-gray-200 flex justify-between items-center text-[10px] text-gray-400">
+            <p>SnapTech Digital &bull; Confidential Executive Document</p>
+            <p>Report Compiled for Management &amp; Boss Review</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Dashboard Page Component ───────────────────────────────
 export default function AdminClientProjectsPage() {
   const qc = useQueryClient()
   const toast = useToast()
@@ -506,36 +1027,24 @@ export default function AdminClientProjectsPage() {
   const [editing, setEditing] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [stageFilter, setStageFilter] = useState('ALL')
   const [priorityFilter, setPriorityFilter] = useState('ALL')
-  const [clientFilter, setClientFilter] = useState('ALL')
+  const [healthFilter, setHealthFilter] = useState('ALL')
   const [quickViewProject, setQuickViewProject] = useState(null)
-  const [showBossReportModal, setShowBossReportModal] = useState(false)
+  const [printSingleProject, setPrintSingleProject] = useState(null)
+  const [showMasterReport, setShowMasterReport] = useState(false)
 
-  // In-modal task creation
-  const [newTaskTitle, setNewTaskTitle] = useState('')
-
-  // Confirm Modals state
+  // Confirm delete modal
   const [deleteConfirm, setDeleteConfirm] = useState({
     isOpen: false,
     id: null,
     title: '',
   })
 
-  const [resendConfirm, setResendConfirm] = useState({
-    isOpen: false,
-    clientId: null,
-    email: '',
-  })
-
   // Queries
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-client-projects'],
-    queryFn: () => api.get('/admin/client-projects').then((r) => r.data),
-  })
-
-  const { data: clients = [] } = useQuery({
-    queryKey: ['admin-clients-list-for-dropdown'],
-    queryFn: () => api.get('/admin/clients').then((r) => r.data),
+    queryFn: () => api.get('/admin/client-projects').then((r) => r.data || []),
   })
 
   // Mutations
@@ -546,10 +1055,10 @@ export default function AdminClientProjectsPage() {
       qc.invalidateQueries({ queryKey: ['admin-stats'] })
       setShowForm(false)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-      toast.success('Project created! Client & assigned staff have been notified.')
+      toast.success('Project added to company tracker successfully!')
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || err.message || 'Failed to create client project.')
+      toast.error(err.response?.data?.message || err.message || 'Failed to add project.')
     },
   })
 
@@ -560,75 +1069,27 @@ export default function AdminClientProjectsPage() {
       qc.invalidateQueries({ queryKey: ['admin-stats'] })
       setEditing(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-      toast.success('Project updated successfully!')
+      toast.success('Project details updated successfully!')
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || err.message || 'Failed to update client project.')
+      toast.error(err.response?.data?.message || err.message || 'Failed to update project.')
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/admin/client-projects/${id}`),
     onSuccess: (_, deletedId) => {
-      toast.info('Client project removed from system.')
+      toast.info('Project removed from system.')
       qc.setQueryData(['admin-client-projects'], (old) => {
         if (!Array.isArray(old)) return old
         return old.filter((p) => p.id !== deletedId)
       })
       qc.invalidateQueries({ queryKey: ['admin-client-projects'] })
       qc.invalidateQueries({ queryKey: ['admin-stats'] })
+      setDeleteConfirm({ isOpen: false, id: null, title: '' })
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to delete project')
-    },
-  })
-
-  const resendCredentialsMutation = useMutation({
-    mutationFn: (clientId) => api.post(`/admin/clients/${clientId}/resend-welcome`),
-    onSuccess: () => {
-      toast.success('Portal login credentials email sent to client!')
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to send credentials.')
-    },
-  })
-
-  // Task mutation inside Quick View Modal
-  const createTaskMutation = useMutation({
-    mutationFn: ({ projectId, title }) =>
-      api.post(`/admin/client-projects/${projectId}/tasks`, { title, priority: 'MEDIUM' }),
-    onSuccess: (res) => {
-      toast.success('Task added to project!')
-      setNewTaskTitle('')
-      qc.invalidateQueries({ queryKey: ['admin-client-projects'] })
-      if (quickViewProject) {
-        setQuickViewProject((prev) => ({
-          ...prev,
-          tasks: [...(prev.tasks || []), res.data.data],
-        }))
-      }
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to add task.')
-    },
-  })
-
-  const toggleTaskMutation = useMutation({
-    mutationFn: ({ taskId, status }) =>
-      api.patch(`/admin/tasks/${taskId}`, { status }),
-    onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: ['admin-client-projects'] })
-      if (quickViewProject) {
-        setQuickViewProject((prev) => ({
-          ...prev,
-          tasks: (prev.tasks || []).map((t) =>
-            t.id === variables.taskId ? { ...t, status: variables.status } : t
-          ),
-        }))
-      }
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to update task.')
+      toast.error(err.response?.data?.message || 'Failed to delete project.')
     },
   })
 
@@ -640,34 +1101,42 @@ export default function AdminClientProjectsPage() {
   const stats = useMemo(() => {
     const total = projects.length
     const active = projects.filter((p) => p.status === 'IN_PROGRESS' || p.status === 'PLANNING').length
+    const review = projects.filter((p) => p.status === 'REVIEW').length
     const completed = projects.filter((p) => p.status === 'COMPLETED').length
     const overdue = projects.filter((p) => {
       if (!p.deadline || p.status === 'COMPLETED') return false
       return new Date(p.deadline) < new Date()
     }).length
-    return { total, active, completed, overdue }
+    return { total, active, review, completed, overdue }
   }, [projects])
 
   // Filtered projects
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
+      const q = searchTerm.toLowerCase()
       const matchesSearch =
         searchTerm === '' ||
-        p.projectTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.tags && p.tags.some((t) => t.toLowerCase().includes(searchTerm.toLowerCase())))
+        p.projectTitle?.toLowerCase().includes(q) ||
+        p.clientName?.toLowerCase().includes(q) ||
+        p.assignedTo?.toLowerCase().includes(q) ||
+        p.scopeFeatures?.toLowerCase().includes(q) ||
+        p.changeRequests?.toLowerCase().includes(q) ||
+        p.currentStatusNote?.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q) ||
+        (Array.isArray(p.tags) && p.tags.some((t) => t.toLowerCase().includes(q)))
 
       const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter
+      const matchesStage = stageFilter === 'ALL' || p.devStage === stageFilter
       const matchesPriority = priorityFilter === 'ALL' || p.priority === priorityFilter
-      const matchesClient = clientFilter === 'ALL' || p.clientId === clientFilter || p.clientName === clientFilter
+      const matchesHealth = healthFilter === 'ALL' || p.health === healthFilter
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesClient
+      return matchesSearch && matchesStatus && matchesStage && matchesPriority && matchesHealth
     })
-  }, [projects, searchTerm, statusFilter, priorityFilter, clientFilter])
+  }, [projects, searchTerm, statusFilter, stageFilter, priorityFilter, healthFilter])
 
+  // Deadline calculation
   const calculateDaysLeft = (deadlineStr) => {
-    if (!deadlineStr) return { text: 'No SLA Date', color: 'bg-gray-100 text-gray-500 border-gray-200' }
+    if (!deadlineStr) return { text: 'No Target Date', color: 'bg-gray-100 text-gray-500 border-gray-200' }
     const deadline = new Date(deadlineStr)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -687,53 +1156,135 @@ export default function AdminClientProjectsPage() {
     return { text: `${diffDays} days left`, color: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-medium' }
   }
 
-  const handleDeleteClick = (project) => {
-    setDeleteConfirm({
-      isOpen: true,
-      id: project.id,
-      title: project.projectTitle,
+  // Export to Excel / CSV
+  const handleExportCSV = () => {
+    if (!projects || projects.length === 0) {
+      toast.info('No projects to export.')
+      return
+    }
+
+    const headers = [
+      'Project Title',
+      'Client Name',
+      'Client Contact',
+      'Project Type',
+      'Development Stage',
+      'Status',
+      'Health',
+      'Priority',
+      'Progress (%)',
+      'Assigned Team',
+      'Start Date',
+      'Deadline',
+      'Budget',
+      'Payment Status',
+      'Payment Received',
+      'Payment Pending',
+      'Payment Notes',
+      'Scope Deliverables',
+      'Client Changes (Extra Time)',
+      'Latest Status Scene',
+      'Live URL',
+      'Staging URL',
+      'Repo URL',
+    ]
+
+    const escapeCsv = (str) => {
+      if (str === null || str === undefined) return '""'
+      return `"${String(str).replace(/"/g, '""')}"`
+    }
+
+    const rows = filteredProjects.map((p) => {
+      const stage = STAGE_MAP[p.devStage]?.label || p.devStage || ''
+      const type = PROJECT_TYPES.find((t) => t.id === p.projectType)?.label || p.projectType || ''
+      return [
+        escapeCsv(p.projectTitle),
+        escapeCsv(p.clientName),
+        escapeCsv(p.clientContact),
+        escapeCsv(type),
+        escapeCsv(stage),
+        escapeCsv(STATUS_LABELS[p.status] || p.status),
+        escapeCsv(HEALTH_LABELS[p.health] || p.health),
+        escapeCsv(p.priority),
+        p.progress || 0,
+        escapeCsv(p.assignedTo),
+        escapeCsv(p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : ''),
+        escapeCsv(p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : ''),
+        escapeCsv(p.budget),
+        escapeCsv(p.paymentStatus),
+        escapeCsv(p.paymentReceived),
+        escapeCsv(p.paymentPending),
+        escapeCsv(p.paymentNotes),
+        escapeCsv(p.scopeFeatures || p.description),
+        escapeCsv(p.changeRequests),
+        escapeCsv(p.currentStatusNote || p.notes),
+        escapeCsv(p.liveUrl),
+        escapeCsv(p.stagingUrl),
+        escapeCsv(p.repoUrl),
+      ].join(',')
     })
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `SnapTech_Company_Projects_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success('Excel CSV export downloaded successfully!')
   }
 
   return (
     <>
       <SEO
-        title="Client Projects Tracker & Vault — Admin"
-        description="Enterprise client project tracking, deliverables vault, SLA deadlines, and executive management reporting."
+        title="Company Development Projects Tracker — Admin"
+        description="Comprehensive development projects tracking, team allocation, stage lifecycles, change requests, and executive management reporting."
       />
 
       <div className="space-y-6 max-w-7xl mx-auto pb-16">
         {/* ── Top Header Section ─────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200/80 pb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-gray-900 tracking-tight flex items-center gap-2.5">
               <span className="p-2 bg-brand-blue/10 text-brand-blue rounded-xl">
                 <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6" />
               </span>
-              Client Projects Tracker &amp; Vault
+              Company Development Projects Tracker
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Manage client projects, track deliverables, team attributions, and generate Boss reports for leadership.
+              Internal &bull; Client Projects &bull; Lifecycle Stages &bull; Assigned Team &bull; Management Reports
             </p>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
               onClick={() => refetch()}
-              className="p-2.5 text-gray-500 hover:text-brand-blue hover:bg-blue-50 rounded-xl border border-gray-200/80 transition-all cursor-pointer bg-white"
+              className="p-2.5 text-gray-500 hover:text-brand-blue hover:bg-blue-50 rounded-xl border border-gray-200 transition-all cursor-pointer bg-white"
               title="Refresh Projects"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
 
-            {/* Boss Reports Button */}
+            {/* Export to Excel Button */}
             <button
-              onClick={() => setShowBossReportModal(true)}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all cursor-pointer"
-              title="Export Executive Report to Excel (CSV) or Print PDF"
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+              title="Download Excel spreadsheet of projects"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>Boss Reports (Excel / PDF)</span>
+              <span>Excel Export</span>
+            </button>
+
+            {/* Master Report (Print All) */}
+            <button
+              onClick={() => setShowMasterReport(true)}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+              title="Print All Projects Master Executive Report for Management"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Master Report</span>
             </button>
 
             {/* Add New Project Button */}
@@ -751,65 +1302,70 @@ export default function AdminClientProjectsPage() {
           </div>
         </div>
 
-        {/* ── Summary Metric Stats Row ────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-shadow">
+        {/* ── Summary KPI Metric Cards ───────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gray-100 text-gray-700 border border-gray-200 flex items-center justify-center shrink-0">
               <FolderOpen className="w-5 h-5" />
             </div>
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Projects</p>
-              <p className="text-xl font-extrabold font-heading text-gray-900">
-                {isLoading ? '…' : stats.total}
-              </p>
+              <p className="text-xl font-black text-gray-900">{isLoading ? '…' : stats.total}</p>
             </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-shadow">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-brand-blue border border-blue-100 flex items-center justify-center shrink-0">
-              <Clock className="w-5 h-5" />
+              <Code2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Projects</p>
-              <p className="text-xl font-extrabold font-heading text-brand-blue">
-                {isLoading ? '…' : stats.active}
-              </p>
+              <p className="text-[10px] font-bold text-brand-blue uppercase tracking-wider">In Development</p>
+              <p className="text-xl font-black text-brand-blue">{isLoading ? '…' : stats.active}</p>
             </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-shadow">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">In Review / QA</p>
+              <p className="text-xl font-black text-amber-700">{isLoading ? '…' : stats.review}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
               <FileCheck className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Completed</p>
-              <p className="text-xl font-extrabold font-heading text-emerald-600">
-                {isLoading ? '…' : stats.completed}
-              </p>
+              <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Completed</p>
+              <p className="text-xl font-black text-emerald-600">{isLoading ? '…' : stats.completed}</p>
             </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center gap-3.5 hover:shadow-sm transition-shadow">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs flex items-center gap-3 col-span-2 sm:col-span-1">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-              stats.overdue > 0 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-gray-50 text-gray-400 border-gray-200'
+              stats.overdue > 0 ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-gray-50 text-gray-400 border-gray-200'
             }`}>
               <Clock className="w-5 h-5" />
             </div>
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Overdue SLA</p>
-              <p className={`text-xl font-extrabold font-heading ${stats.overdue > 0 ? 'text-rose-600' : 'text-gray-900'}`}>
+              <p className={`text-xl font-black ${stats.overdue > 0 ? 'text-rose-600' : 'text-gray-900'}`}>
                 {isLoading ? '…' : stats.overdue}
               </p>
             </div>
           </div>
         </div>
 
-        {/* ── Form Slide-over/Panel ─────────────────────────────── */}
+        {/* ── Project Form Panel ─────────────────────────────────── */}
         {(showForm || editing) && (
-          <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-200/90 shadow-xl space-y-6">
+          <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-200 shadow-xl space-y-6 animate-fadeIn">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h2 className="text-base sm:text-lg font-extrabold font-heading text-gray-900">
-                {showForm ? 'Add New Client Project' : `Edit: ${editing?.projectTitle}`}
+              <h2 className="text-base sm:text-lg font-extrabold font-heading text-gray-900 flex items-center gap-2">
+                <span>{showForm ? '➕' : '✏️'}</span>
+                <span>{showForm ? 'Add New Development Project' : `Edit: ${editing?.projectTitle}`}</span>
               </h2>
               <button
                 onClick={() => {
@@ -822,39 +1378,33 @@ export default function AdminClientProjectsPage() {
               </button>
             </div>
 
-            {showForm ? (
-              <ProjectForm
-                onSave={(data) => createMutation.mutate(data)}
-                onCancel={() => setShowForm(false)}
-                loading={createMutation.isPending}
-              />
-            ) : (
-              <div className="space-y-8">
-                <ProjectForm
-                  initial={editing}
-                  onSave={(data) => updateMutation.mutate({ id: editing.id, ...data })}
-                  onCancel={() => setEditing(null)}
-                  loading={updateMutation.isPending}
-                  onAttachmentChange={handleAttachmentChange}
-                />
-
-                {/* Integrated Billing & Invoice Section for Existing Project */}
-                <div className="pt-6 border-t border-gray-200">
-                  <AdminBillingSection clientProjectId={editing.id} projectId={editing.id} clientProject={editing} />
-                </div>
-              </div>
-            )}
+            <ProjectForm
+              initial={editing}
+              onSave={(data) => {
+                if (editing) {
+                  updateMutation.mutate({ id: editing.id, ...data })
+                } else {
+                  createMutation.mutate(data)
+                }
+              }}
+              onCancel={() => {
+                setShowForm(false)
+                setEditing(null)
+              }}
+              loading={createMutation.isPending || updateMutation.isPending}
+              onAttachmentChange={handleAttachmentChange}
+            />
           </div>
         )}
 
         {/* ── Search & Filter Controls ───────────────────────────── */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs space-y-3">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs space-y-3">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search projects by title, client name, description, tags..."
+                placeholder="Search by project title, client, assigned developer, tech stack, notes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 text-xs sm:text-sm border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
@@ -870,16 +1420,16 @@ export default function AdminClientProjectsPage() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Client Filter */}
+              {/* Dev Stage Filter */}
               <select
-                value={clientFilter}
-                onChange={(e) => setClientFilter(e.target.value)}
+                value={stageFilter}
+                onChange={(e) => setStageFilter(e.target.value)}
                 className="px-3 py-2 text-xs font-semibold border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none"
               >
-                <option value="ALL">All Clients ({clients.length})</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
+                <option value="ALL">All Dev Stages</option>
+                {DEV_STAGES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
                   </option>
                 ))}
               </select>
@@ -898,89 +1448,67 @@ export default function AdminClientProjectsPage() {
                 ))}
               </select>
 
-              {/* Priority Filter */}
+              {/* Health Filter */}
               <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
+                value={healthFilter}
+                onChange={(e) => setHealthFilter(e.target.value)}
                 className="px-3 py-2 text-xs font-semibold border border-gray-200 rounded-xl bg-gray-50/50 focus:bg-white focus:outline-none"
               >
-                <option value="ALL">All Priorities</option>
-                {PRIORITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
+                <option value="ALL">All Health</option>
+                <option value="ON_TRACK">🟢 On Track</option>
+                <option value="AT_RISK">🟡 At Risk</option>
+                <option value="DELAYED">🔴 Delayed</option>
               </select>
 
-              {(searchTerm || statusFilter !== 'ALL' || priorityFilter !== 'ALL' || clientFilter !== 'ALL') && (
+              {(searchTerm || statusFilter !== 'ALL' || stageFilter !== 'ALL' || healthFilter !== 'ALL') && (
                 <button
                   onClick={() => {
                     setSearchTerm('')
                     setStatusFilter('ALL')
+                    setStageFilter('ALL')
+                    setHealthFilter('ALL')
                     setPriorityFilter('ALL')
-                    setClientFilter('ALL')
                   }}
                   className="px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-100 font-semibold transition-all cursor-pointer"
                 >
-                  Clear Filters
+                  Reset
                 </button>
               )}
             </div>
           </div>
-
-          {/* Client Filter Banner if specific client is selected */}
-          {clientFilter !== 'ALL' && (
-            <div className="bg-blue-50/70 border border-blue-200/80 px-3.5 py-2 rounded-xl flex items-center justify-between text-xs text-brand-blue font-medium">
-              <span className="flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5" />
-                Filtered by client:{' '}
-                <strong>
-                  {clients.find((c) => c.id === clientFilter)?.name || clientFilter}
-                </strong>{' '}
-                ({filteredProjects.length} project{filteredProjects.length === 1 ? '' : 's'})
-              </span>
-              <button
-                onClick={() => setClientFilter('ALL')}
-                className="text-[11px] underline hover:text-blue-800 cursor-pointer font-bold"
-              >
-                Show All
-              </button>
-            </div>
-          )}
         </div>
 
         {/* ── Project Cards Grid ─────────────────────────────────── */}
         {isLoading ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-gray-200/80 shadow-xs">
+          <div className="text-center py-16 bg-white rounded-3xl border border-gray-200 shadow-xs">
             <RefreshCw className="w-8 h-8 text-brand-blue animate-spin mx-auto mb-3" />
-            <p className="text-sm font-bold text-gray-700">Loading client projects &amp; deliverables...</p>
+            <p className="text-sm font-bold text-gray-700">Loading development projects...</p>
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-gray-200/80 shadow-xs space-y-3">
+          <div className="text-center py-16 bg-white rounded-3xl border border-gray-200 shadow-xs space-y-3">
             <FolderOpen className="w-12 h-12 text-gray-300 mx-auto" />
-            <p className="text-base font-bold text-gray-800">No projects found</p>
+            <p className="text-base font-bold text-gray-800">No development projects found</p>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || statusFilter !== 'ALL' || clientFilter !== 'ALL'
-                ? 'Try adjusting your filters or search keywords.'
-                : 'Click "Add Project" to start tracking your first client project.'}
+              {searchTerm || statusFilter !== 'ALL' || stageFilter !== 'ALL'
+                ? 'Try adjusting your search criteria or resetting filters.'
+                : 'Click "Add Project" to record your company\'s first development project.'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredProjects.map((p) => {
               const deadlineStatus = calculateDaysLeft(p.deadline)
-              const typeObj = PROJECT_TYPES.find((t) => t.id === p.projectType) || { label: p.projectType || 'Custom' }
-              const tasksDone = (p.tasks || []).filter((t) => t.status === 'COMPLETED').length
-              const totalTasks = (p.tasks || []).length
+              const stage = STAGE_MAP[p.devStage] || DEV_STAGES[0]
+              const type = PROJECT_TYPES.find((t) => t.id === p.projectType) || { label: p.projectType || 'Software' }
 
               return (
                 <div
                   key={p.id}
-                  className="bg-white rounded-2xl border border-gray-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between p-5 group hover:border-brand-blue/40"
+                  className="bg-white rounded-2xl border border-gray-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between p-5 group hover:border-brand-blue/40 space-y-4"
                 >
-                  <div>
-                    {/* Header Row: Title, Priority, Status */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="space-y-3">
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <h3
                           onClick={() => setQuickViewProject(p)}
@@ -989,23 +1517,10 @@ export default function AdminClientProjectsPage() {
                         >
                           {p.projectTitle}
                         </h3>
-                        <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+                        <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 font-medium">
                           <Building2 className="w-3 h-3 text-gray-400 shrink-0" />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (p.clientId) setClientFilter(p.clientId)
-                            }}
-                            className="font-bold text-gray-700 hover:text-brand-blue truncate max-w-[170px] text-left underline decoration-gray-300 hover:decoration-brand-blue"
-                            title={`Filter projects by ${p.clientName}`}
-                          >
-                            {p.clientName}
-                          </button>
-                          {p.client && (
-                            <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-1 rounded font-bold shrink-0">
-                              Portal Linked
-                            </span>
-                          )}
+                          <strong className="text-gray-800">{p.clientName}</strong>
+                          {p.clientContact && <span className="text-gray-400 truncate max-w-[120px]">({p.clientContact})</span>}
                         </p>
                       </div>
 
@@ -1027,14 +1542,18 @@ export default function AdminClientProjectsPage() {
                       </div>
                     </div>
 
-                    {/* Sub-Badges Row: Project Type & Health */}
-                    <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                    {/* Development Stage Badge & Project Type */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] font-semibold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md border border-gray-200">
-                        {typeObj.label}
+                        {type.label}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 ${stage.color}`}>
+                        <span>{stage.icon}</span>
+                        <span>{stage.label}</span>
                       </span>
                       {p.health && (
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
                             HEALTH_COLORS[p.health] || HEALTH_COLORS.ON_TRACK
                           }`}
                         >
@@ -1044,10 +1563,10 @@ export default function AdminClientProjectsPage() {
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="space-y-1 mb-3">
+                    <div className="space-y-1">
                       <div className="flex justify-between text-[11px] font-semibold">
                         <span className="text-gray-500">Progress</span>
-                        <span className="font-mono font-bold text-gray-900">{p.progress}%</span>
+                        <span className="font-mono font-bold text-brand-blue">{p.progress}%</span>
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden border border-gray-200/60">
                         <div
@@ -1063,46 +1582,64 @@ export default function AdminClientProjectsPage() {
                       </div>
                     </div>
 
-                    {/* Assigned Staff & Budget Row */}
-                    <div className="flex items-center justify-between text-xs mb-3 bg-gray-50/60 p-2 rounded-xl border border-gray-100">
-                      <div className="flex items-center gap-1.5 text-gray-700 min-w-0">
-                        <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="font-bold text-[11px] truncate text-gray-900">
-                            {p.assignedTo || 'Unassigned'}
-                          </p>
-                          {p.assignedToEmail && (
-                            <a
-                              href={`mailto:${p.assignedToEmail}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-[10px] text-gray-400 hover:text-brand-blue truncate block"
-                            >
-                              {p.assignedToEmail}
-                            </a>
-                          )}
-                        </div>
+                    {/* Assigned Developers Box */}
+                    <div className="bg-gray-50/80 p-2.5 rounded-xl border border-gray-100 space-y-1">
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                        <User className="w-3 h-3 text-indigo-500" />
+                        <span>Assigned Team:</span>
                       </div>
-                      {p.budget && (
-                        <div className="text-[11px] text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 shrink-0">
-                          {p.budget}
-                        </div>
-                      )}
+                      <p className="text-xs font-bold text-gray-900 line-clamp-1" title={p.assignedTo}>
+                        {p.assignedTo || 'Unassigned / Needs Allocation'}
+                      </p>
                     </div>
 
-                    {/* Deployment URLs (Live, Staging, Repo) */}
+                    {/* Commercials & Financials Row */}
+                    {(p.budget || p.paymentReceived || p.paymentPending) && (
+                      <div className="bg-emerald-50/40 p-2 rounded-xl border border-emerald-100 flex items-center justify-between text-xs flex-wrap gap-1">
+                        <div className="flex items-center gap-1 text-emerald-800 font-bold">
+                          <DollarSign className="w-3 h-3" />
+                          <span>{p.budget || 'Custom'}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-600">
+                          {p.paymentReceived && <span className="text-emerald-700 font-bold mr-1.5">Rec: {p.paymentReceived}</span>}
+                          {p.paymentPending && <span className="text-amber-700 font-bold">Pend: {p.paymentPending}</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Change Requests Alert (If Client added new things) */}
+                    {p.changeRequests && (
+                      <div className="bg-amber-50/70 p-2 rounded-xl border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold block text-[10px] uppercase text-amber-800">
+                            Scope Additions (Extra Time):
+                          </span>
+                          <p className="line-clamp-1 font-medium text-amber-950">{p.changeRequests}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Latest Status Scene ("Kya Scene Hai") */}
+                    {(p.currentStatusNote || p.notes) && (
+                      <div className="bg-blue-50/30 p-2 rounded-xl border border-blue-100/70 text-[11px] text-gray-700 line-clamp-2">
+                        <strong className="text-brand-blue font-bold">Scene: </strong>
+                        {p.currentStatusNote || p.notes}
+                      </div>
+                    )}
+
+                    {/* Deployment URLs */}
                     {(p.liveUrl || p.stagingUrl || p.repoUrl) && (
-                      <div className="flex items-center gap-1.5 mb-3 flex-wrap text-[10px]">
+                      <div className="flex items-center gap-1.5 flex-wrap text-[10px] pt-1">
                         {p.liveUrl && (
                           <a
                             href={p.liveUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="px-2 py-0.5 bg-blue-50 text-brand-blue hover:bg-blue-100 rounded-md border border-blue-200 flex items-center gap-1 font-semibold transition-all"
-                            title={`Open Live Site: ${p.liveUrl}`}
+                            className="px-2 py-0.5 bg-blue-50 text-brand-blue hover:bg-blue-100 rounded-md border border-blue-200 flex items-center gap-1 font-semibold"
                           >
                             <Globe className="w-2.5 h-2.5" />
-                            Live Site
+                            Live
                           </a>
                         )}
                         {p.stagingUrl && (
@@ -1110,12 +1647,10 @@ export default function AdminClientProjectsPage() {
                             href={p.stagingUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="px-2 py-0.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-md border border-amber-200 flex items-center gap-1 font-semibold transition-all"
-                            title={`Open Staging: ${p.stagingUrl}`}
+                            className="px-2 py-0.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-md border border-amber-200 flex items-center gap-1 font-semibold"
                           >
                             <ExternalLink className="w-2.5 h-2.5" />
-                            Staging
+                            Demo
                           </a>
                         )}
                         {p.repoUrl && (
@@ -1123,102 +1658,64 @@ export default function AdminClientProjectsPage() {
                             href={p.repoUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="px-2 py-0.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-md border border-purple-200 flex items-center gap-1 font-semibold transition-all"
-                            title={`Open Repo: ${p.repoUrl}`}
+                            className="px-2 py-0.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-md border border-purple-200 flex items-center gap-1 font-semibold"
                           >
                             <Code2 className="w-2.5 h-2.5" />
-                            Git Repo
+                            Repo
                           </a>
                         )}
-                      </div>
-                    )}
-
-                    {/* Brief Description */}
-                    {p.description && (
-                      <p className="text-[11px] text-gray-600 line-clamp-2 bg-gray-50/50 p-2 rounded-xl border border-gray-100 mb-2 font-sans">
-                        {p.description}
-                      </p>
-                    )}
-
-                    {/* Tags */}
-                    {p.tags && p.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {p.tags.map((t) => (
-                          <span
-                            key={t}
-                            className="text-[9px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-md flex items-center gap-0.5 border border-gray-200"
-                          >
-                            <Tag className="w-2 h-2 text-gray-400" />
-                            {t}
-                          </span>
-                        ))}
                       </div>
                     )}
                   </div>
 
                   {/* Card Actions Footer */}
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 flex-wrap gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span
-                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${deadlineStatus.color}`}
-                      >
-                        {deadlineStatus.text}
-                      </span>
-                      {p.attachments && p.attachments.length > 0 && (
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-brand-blue border border-blue-100 flex items-center gap-1"
-                          title="Files in Project Vault"
-                        >
-                          📎 {p.attachments.length}
-                        </span>
-                      )}
-                      {totalTasks > 0 && (
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-100 flex items-center gap-1"
-                          title="Tasks Completed / Total"
-                        >
-                          <Layers className="w-2.5 h-2.5" />
-                          {tasksDone}/{totalTasks}
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 flex-wrap gap-2">
+                    <span
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${deadlineStatus.color}`}
+                    >
+                      {deadlineStatus.text}
+                    </span>
 
                     <div className="flex items-center gap-1">
-                      {p.client && (
-                        <button
-                          onClick={() => {
-                            setResendConfirm({
-                              isOpen: true,
-                              clientId: p.client.id,
-                              email: p.client.email,
-                            })
-                          }}
-                          className="text-gray-400 hover:text-emerald-600 p-1.5 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
-                          title="Resend Portal Welcome Credentials Email"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      {/* Individual Project Print Sheet */}
+                      <button
+                        onClick={() => setPrintSingleProject(p)}
+                        className="text-gray-500 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                        title="Print Single Project Sheet (Management PDF)"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
+
+                      {/* Quick Inspect View */}
                       <button
                         onClick={() => setQuickViewProject(p)}
-                        className="text-gray-400 hover:text-brand-blue p-1.5 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
-                        title="View Full Project Details & Vault"
+                        className="text-gray-500 hover:text-brand-blue p-1.5 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                        title="View Full Details"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
+
+                      {/* Edit Project */}
                       <button
                         onClick={() => {
                           setEditing(p)
                           window.scrollTo({ top: 0, behavior: 'smooth' })
                         }}
-                        className="text-gray-400 hover:text-brand-blue p-1.5 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                        className="text-gray-500 hover:text-brand-blue p-1.5 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
                         title="Edit Project"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
+
+                      {/* Delete Project */}
                       <button
-                        onClick={() => handleDeleteClick(p)}
+                        onClick={() =>
+                          setDeleteConfirm({
+                            isOpen: true,
+                            id: p.id,
+                            title: p.projectTitle,
+                          })
+                        }
                         className="text-gray-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
                         title="Delete Project"
                       >
@@ -1233,329 +1730,126 @@ export default function AdminClientProjectsPage() {
         )}
       </div>
 
-      {/* ── Quick View & Management Modal ─────────────────────── */}
+      {/* ── Quick Inspect Modal ─────────────────────────────────── */}
       {quickViewProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-7 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto border border-gray-200">
-            {/* Modal Header */}
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-5 sm:p-7 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto border border-gray-200">
             <div className="flex items-start justify-between border-b border-gray-100 pb-4">
-              <div className="flex items-start gap-3">
-                <div className="p-3 bg-brand-blue/10 text-brand-blue rounded-2xl shrink-0 mt-1">
-                  <FolderOpen className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-lg sm:text-xl font-extrabold font-heading text-gray-900">
-                      {quickViewProject.projectTitle}
-                    </h3>
-                    <span
-                      className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                        STATUS_COLORS[quickViewProject.status]
-                      }`}
-                    >
-                      {STATUS_LABELS[quickViewProject.status]}
-                    </span>
-                    {quickViewProject.health && (
-                      <span
-                        className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
-                          HEALTH_COLORS[quickViewProject.health] || HEALTH_COLORS.ON_TRACK
-                        }`}
-                      >
-                        {HEALTH_LABELS[quickViewProject.health] || quickViewProject.health}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
-                    <span className="flex items-center gap-1 font-semibold text-gray-700">
-                      <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                      Client: <strong>{quickViewProject.clientName}</strong>
-                    </span>
-                    {quickViewProject.client && (
-                      <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded font-bold">
-                        Portal Account Linked
-                      </span>
-                    )}
-                    <span className="text-gray-300">•</span>
-                    <span className="flex items-center gap-1 text-gray-600 font-medium">
-                      <User className="w-3.5 h-3.5 text-gray-400" />
-                      Assigned: <strong>{quickViewProject.assignedTo || 'Unassigned'}</strong>
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setQuickViewProject(null)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all cursor-pointer shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Quick KPI Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200/80">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Budget</p>
-                <p className="text-lg font-black text-gray-900 mt-0.5">{quickViewProject.budget || '₹ Custom'}</p>
-              </div>
-              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200/80">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Progress</p>
-                <p className="text-lg font-black text-brand-blue mt-0.5">{quickViewProject.progress}%</p>
-              </div>
-              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200/80">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Start Date</p>
-                <p className="text-xs font-bold text-gray-800 mt-1">
-                  {quickViewProject.startDate ? new Date(quickViewProject.startDate).toLocaleDateString('en-IN') : 'N/A'}
+              <div>
+                <h3 className="text-lg sm:text-xl font-extrabold font-heading text-gray-900">
+                  {quickViewProject.projectTitle}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Client: <strong>{quickViewProject.clientName}</strong>
+                  {quickViewProject.clientContact && ` • ${quickViewProject.clientContact}`}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200/80">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Deadline</p>
-                <p className="text-xs font-bold text-gray-800 mt-1">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const target = quickViewProject
+                    setQuickViewProject(null)
+                    setPrintSingleProject(target)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print Sheet
+                </button>
+                <button
+                  onClick={() => setQuickViewProject(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Stage</span>
+                <p className="text-xs font-bold text-brand-blue mt-0.5">
+                  {STAGE_MAP[quickViewProject.devStage]?.label || 'Planning'}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Progress</span>
+                <p className="text-base font-black text-emerald-600 mt-0.5">{quickViewProject.progress}%</p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Budget</span>
+                <p className="text-base font-black text-gray-900 mt-0.5">{quickViewProject.budget || '—'}</p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Deadline</span>
+                <p className="text-xs font-bold text-gray-900 mt-1">
                   {quickViewProject.deadline ? new Date(quickViewProject.deadline).toLocaleDateString('en-IN') : 'N/A'}
                 </p>
               </div>
             </div>
 
-            {/* Deployment & Repository Links */}
-            {(quickViewProject.liveUrl || quickViewProject.stagingUrl || quickViewProject.repoUrl) && (
-              <div className="flex items-center gap-2 flex-wrap bg-blue-50/40 p-3 rounded-2xl border border-blue-100 text-xs">
-                <span className="font-bold text-gray-700 mr-1 flex items-center gap-1">
-                  <span>🔗</span> Project Links:
-                </span>
-                {quickViewProject.liveUrl && (
-                  <a
-                    href={quickViewProject.liveUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 bg-white text-brand-blue hover:bg-blue-50 rounded-xl border border-blue-200 font-bold flex items-center gap-1.5 transition-all shadow-xs"
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    Visit Live Site
-                  </a>
-                )}
-                {quickViewProject.stagingUrl && (
-                  <a
-                    href={quickViewProject.stagingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 bg-white text-amber-700 hover:bg-amber-50 rounded-xl border border-amber-200 font-bold flex items-center gap-1.5 transition-all shadow-xs"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Staging Server
-                  </a>
-                )}
-                {quickViewProject.repoUrl && (
-                  <a
-                    href={quickViewProject.repoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 bg-white text-purple-700 hover:bg-purple-50 rounded-xl border border-purple-200 font-bold flex items-center gap-1.5 transition-all shadow-xs"
-                  >
-                    <Code2 className="w-3.5 h-3.5" />
-                    GitHub Repository
-                  </a>
-                )}
-              </div>
-            )}
+            {/* Team */}
+            <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Assigned Team</span>
+              <p className="text-sm font-bold text-gray-900">{quickViewProject.assignedTo || 'Unassigned'}</p>
+            </div>
 
-            {/* Scope & Confidential Notes */}
-            {quickViewProject.description && (
-              <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200 space-y-1">
-                <p className="text-xs font-bold text-gray-700">Project Overview &amp; Scope:</p>
-                <p className="text-xs text-gray-600 leading-relaxed">{quickViewProject.description}</p>
-              </div>
-            )}
+            {/* Current Scene */}
+            <div className="p-3.5 bg-blue-50/50 rounded-xl border border-blue-100 space-y-1">
+              <span className="text-[10px] font-bold text-brand-blue uppercase tracking-wider block">Current Project Scene</span>
+              <p className="text-xs text-gray-800 font-medium whitespace-pre-wrap">
+                {quickViewProject.currentStatusNote || quickViewProject.notes || '—'}
+              </p>
+            </div>
 
-            {quickViewProject.notes && (
-              <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200/70 space-y-1">
-                <p className="text-xs font-bold text-amber-900">Confidential Internal Notes / Credentials:</p>
-                <p className="text-xs text-amber-800 leading-relaxed whitespace-pre-wrap">{quickViewProject.notes}</p>
-              </div>
-            )}
-
-            {/* In-Project Tasks Section */}
-            <div className="space-y-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-sm text-gray-900 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-purple-600" />
-                  Deliverables &amp; Tasks ({(quickViewProject.tasks || []).length})
-                </h4>
-              </div>
-
-              {/* Task Add Input */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Add a new deliverable task and press Enter..."
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newTaskTitle.trim()) {
-                      createTaskMutation.mutate({
-                        projectId: quickViewProject.id,
-                        title: newTaskTitle.trim(),
-                      })
-                    }
-                  }}
-                  className="flex-1 px-3.5 py-2 text-xs border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
-                />
-                <button
-                  type="button"
-                  disabled={!newTaskTitle.trim() || createTaskMutation.isPending}
-                  onClick={() => {
-                    if (newTaskTitle.trim()) {
-                      createTaskMutation.mutate({
-                        projectId: quickViewProject.id,
-                        title: newTaskTitle.trim(),
-                      })
-                    }
-                  }}
-                  className="px-4 py-2 bg-brand-blue text-white rounded-xl text-xs font-bold hover:bg-blue-600 disabled:opacity-50 transition-all cursor-pointer"
-                >
-                  Add Task
-                </button>
-              </div>
-
-              {/* Tasks List */}
-              {(!quickViewProject.tasks || quickViewProject.tasks.length === 0) ? (
-                <p className="text-xs text-gray-400 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
-                  No tasks tracked yet. Add deliverables above to track progress.
+            {/* Scope vs Changes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Scope of Work</span>
+                <p className="text-xs text-gray-700 whitespace-pre-wrap">
+                  {quickViewProject.scopeFeatures || quickViewProject.description || 'Deliverables as per initial agreement.'}
                 </p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {quickViewProject.tasks.map((task) => {
-                    const isDone = task.status === 'COMPLETED'
-                    return (
-                      <div
-                        key={task.id}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
-                          isDone
-                            ? 'bg-emerald-50/50 border-emerald-200/80 text-gray-500'
-                            : 'bg-gray-50/50 border-gray-200 text-gray-800'
-                        }`}
-                      >
-                        <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={isDone}
-                            onChange={() =>
-                              toggleTaskMutation.mutate({
-                                taskId: task.id,
-                                status: isDone ? 'TODO' : 'COMPLETED',
-                              })
-                            }
-                            className="rounded border-gray-300 text-brand-blue focus:ring-brand-blue cursor-pointer"
-                          />
-                          <span className={`truncate font-medium ${isDone ? 'line-through text-gray-400' : ''}`}>
-                            {task.title}
-                          </span>
-                        </label>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ml-2 ${
-                            isDone
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                              : 'bg-gray-100 text-gray-600 border-gray-200'
-                          }`}
-                        >
-                          {isDone ? 'Done' : 'Pending'}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Project Vault File Assets */}
-            <div className="space-y-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs">
-              <h4 className="font-bold text-sm text-gray-900 flex items-center gap-2">
-                <FileCheck className="w-4 h-4 text-brand-blue" />
-                Project Vault Files &amp; Documents ({quickViewProject.attachments?.length || 0})
-              </h4>
-              <AttachmentSection
-                attachments={quickViewProject.attachments || []}
-                clientProjectId={quickViewProject.id}
-                onUploadSuccess={() => {
-                  qc.invalidateQueries({ queryKey: ['admin-client-projects'] })
-                }}
-              />
-            </div>
-
-            {/* Milestone Billing Section */}
-            <div className="space-y-3 bg-white p-4.5 rounded-2xl border border-gray-200 shadow-xs">
-              <AdminBillingSection
-                clientProjectId={quickViewProject.id}
-                projectId={quickViewProject.id}
-                clientProject={quickViewProject}
-              />
-            </div>
-
-            {/* Modal Footer Controls */}
-            <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  setEditing(quickViewProject)
-                  setQuickViewProject(null)
-                  window.scrollTo({ top: 0, behavior: 'smooth' })
-                }}
-                className="px-4 py-2 bg-brand-blue text-white text-xs font-bold rounded-xl hover:bg-blue-600 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                Edit Full Project Details
-              </button>
-              <button
-                onClick={() => setQuickViewProject(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all cursor-pointer"
-              >
-                Close
-              </button>
+              </div>
+              <div className="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 space-y-1">
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                  Client Changes &amp; Extra Additions
+                </span>
+                <p className="text-xs text-amber-950 whitespace-pre-wrap">
+                  {quickViewProject.changeRequests || 'None recorded.'}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Boss Report Modal ────────────────────────────────────── */}
-      <BossReportModal
-        isOpen={showBossReportModal}
-        onClose={() => setShowBossReportModal(false)}
-        projects={projects}
-        clients={clients}
-      />
+      {/* ── Single Project Sheet Modal ─────────────────────────── */}
+      {printSingleProject && (
+        <PrintSingleProjectModal
+          project={printSingleProject}
+          onClose={() => setPrintSingleProject(null)}
+        />
+      )}
 
-      {/* ── Confirmation Modals ──────────────────────────────────── */}
-      {/* 1. Delete Project Modal */}
+      {/* ── Master Report Modal ─────────────────────────────────── */}
+      {showMasterReport && (
+        <PrintMasterReportModal
+          projects={filteredProjects}
+          onClose={() => setShowMasterReport(false)}
+        />
+      )}
+
+      {/* ── Delete Confirmation Modal ──────────────────────────── */}
       <ConfirmModal
         isOpen={deleteConfirm.isOpen}
-        onClose={() => setDeleteConfirm({ isOpen: false, id: null, title: '' })}
-        onConfirm={() => {
-          if (deleteConfirm.id) {
-            deleteMutation.mutate(deleteConfirm.id)
-            setDeleteConfirm({ isOpen: false, id: null, title: '' })
-          }
-        }}
-        title="Delete Client Project"
-        message="Are you sure you want to permanently delete this client project? This will also cascade delete all linked tasks and deliverables."
-        itemTitle={deleteConfirm.title}
-        confirmText="Delete Project"
-        variant="danger"
-        isLoading={deleteMutation.isPending}
-      />
-
-      {/* 2. Resend Welcome Email Modal */}
-      <ConfirmModal
-        isOpen={resendConfirm.isOpen}
-        onClose={() => setResendConfirm({ isOpen: false, clientId: null, email: '' })}
-        onConfirm={() => {
-          if (resendConfirm.clientId) {
-            resendCredentialsMutation.mutate(resendConfirm.clientId)
-            setResendConfirm({ isOpen: false, clientId: null, email: '' })
-          }
-        }}
-        title="Resend Client Credentials Email"
-        message="Send client portal login credentials and welcome instructions to the linked client email account?"
-        itemTitle={resendConfirm.email}
-        confirmText="Send Email"
-        variant="info"
-        isLoading={resendCredentialsMutation.isPending}
+        title="Delete Project?"
+        message={`Are you sure you want to permanently remove '${deleteConfirm.title}' from the tracker?`}
+        confirmText="Yes, Delete"
+        cancelText="Cancel"
+        isDanger={true}
+        onConfirm={() => deleteMutation.mutate(deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm({ isOpen: false, id: null, title: '' })}
       />
     </>
   )
