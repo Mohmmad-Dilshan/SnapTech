@@ -3,9 +3,27 @@ import fs from 'fs'
 import path from 'path'
 
 let dbUrl = process.env.DATABASE_URL
-if (dbUrl && !dbUrl.includes('connection_limit')) {
-  const separator = dbUrl.includes('?') ? '&' : '?'
-  dbUrl = `${dbUrl}${separator}connection_limit=5&pool_timeout=15`
+if (dbUrl) {
+  // If using Supabase pooler on port 5432 (session mode - limited to pool_size 15),
+  // automatically switch to port 6543 (transaction mode - handles thousands of connections via PgBouncer)
+  if (dbUrl.includes('pooler.supabase.com:5432')) {
+    dbUrl = dbUrl.replace('pooler.supabase.com:5432', 'pooler.supabase.com:6543')
+  }
+
+  // Supabase PgBouncer transaction mode requires pgbouncer=true
+  if (dbUrl.includes(':6543') && !dbUrl.includes('pgbouncer=true')) {
+    const separator = dbUrl.includes('?') ? '&' : '?'
+    dbUrl = `${dbUrl}${separator}pgbouncer=true`
+  }
+
+  if (!dbUrl.includes('connection_limit')) {
+    const separator = dbUrl.includes('?') ? '&' : '?'
+    dbUrl = `${dbUrl}${separator}connection_limit=3`
+  }
+  if (!dbUrl.includes('pool_timeout')) {
+    const separator = dbUrl.includes('?') ? '&' : '?'
+    dbUrl = `${dbUrl}${separator}pool_timeout=20`
+  }
 }
 
 const realPrisma = new PrismaClient({
@@ -3229,8 +3247,29 @@ if (isMockForced && process.env.NODE_ENV !== 'production') {
 } else {
   try {
     console.log('Checking database connection...')
-    await realPrisma.$connect()
-    console.log('Database connected successfully.')
+    let connected = false
+    let lastError = null
+    const maxRetries = 4
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await realPrisma.$connect()
+        connected = true
+        console.log('Database connected successfully.')
+        break
+      } catch (err) {
+        lastError = err
+        console.warn(`[WARN] Database connection attempt ${attempt}/${maxRetries} failed: ${err.message}`)
+        if (attempt < maxRetries) {
+          console.log('Retrying database connection in 2 seconds...')
+          await new Promise((res) => setTimeout(res, 2000))
+        }
+      }
+    }
+
+    if (!connected) {
+      throw lastError || new Error('Database connection failed after retries')
+    }
 
     if (process.env.NODE_ENV !== 'production' && dbUrl?.includes('neon.tech')) {
       console.warn('⚠️ [SAFETY WARNING] Local server is connected to the LIVE Neon Database!')
