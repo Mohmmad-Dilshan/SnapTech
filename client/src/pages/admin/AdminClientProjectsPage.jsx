@@ -13,6 +13,7 @@ import {
   Check,
   Search,
   User,
+  Users,
   Clock,
   FolderOpen,
   Eye,
@@ -28,6 +29,14 @@ import {
   DollarSign,
   AlertTriangle,
   Sparkles,
+  Calendar,
+  CreditCard,
+  Link2,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  Paperclip,
+  Activity,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { api } from '@/utils/api'
@@ -2053,133 +2062,425 @@ export default function AdminClientProjectsPage() {
       </div>
 
       {/* ── Quick Inspect Modal ─────────────────────────────────── */}
-      {quickViewProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-5 sm:p-7 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto border border-gray-200">
-            <div className="flex items-start justify-between border-b border-gray-100 pb-4">
-              <div>
-                <h3 className="text-lg sm:text-xl font-extrabold font-heading text-gray-900">
-                  {quickViewProject.projectTitle}
-                </h3>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <p className="text-xs text-gray-500">
-                    Client: <strong>{quickViewProject.clientName}</strong>
-                    {quickViewProject.clientContact && ` • ${quickViewProject.clientContact}`}
+      {quickViewProject && (() => {
+        const qv = quickViewProject
+        const stageObj = STAGE_MAP[qv.devStage] || DEV_STAGES[0]
+        const typeLabel = formatProjectType(qv.projectType)
+        const paymentLabel = formatPaymentStatus(qv.paymentStatus)
+        const daysInfo = calculateDaysLeft(qv.deadline)
+
+        const tagsList = Array.isArray(qv.tags)
+          ? qv.tags
+          : typeof qv.tags === 'string'
+            ? qv.tags.split(',').map((t) => t.trim()).filter(Boolean)
+            : []
+
+        const teamList = qv.assignedTo
+          ? qv.assignedTo.split(',').map((m) => m.trim()).filter(Boolean)
+          : []
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/65 backdrop-blur-md animate-fadeIn">
+            <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl flex flex-col border border-gray-200 max-h-[92vh] overflow-hidden">
+              {/* Modal Top Header (Sticky) */}
+              <div className="px-5 py-4 sm:px-7 sm:py-5 border-b border-gray-100 flex items-start justify-between gap-4 bg-white/95 backdrop-blur-sm z-10">
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-lg bg-blue-50 text-brand-blue border border-blue-200/80">
+                      {typeLabel}
+                    </span>
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${STATUS_COLORS[qv.status] || 'bg-gray-100 text-gray-700'}`}>
+                      {STATUS_LABELS[qv.status] || qv.status}
+                    </span>
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${PRIORITY_COLORS[qv.priority] || 'bg-gray-100 text-gray-700'}`}>
+                      Priority: {qv.priority}
+                    </span>
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${HEALTH_COLORS[qv.health] || 'bg-gray-100 text-gray-700'}`}>
+                      Health: {HEALTH_LABELS[qv.health] || qv.health}
+                    </span>
+                  </div>
+
+                  <h2 className="text-xl sm:text-2xl font-black font-heading text-gray-900 tracking-tight break-words">
+                    {qv.projectTitle}
+                  </h2>
+
+                  <div className="flex items-center gap-2 sm:gap-4 text-xs text-gray-600 flex-wrap">
+                    <span className="flex items-center gap-1.5 font-bold text-gray-900">
+                      <Building2 className="w-3.5 h-3.5 text-brand-blue" />
+                      {qv.clientName}
+                    </span>
+                    {qv.clientContact && (
+                      <span className="flex items-center gap-1 text-gray-600 font-medium bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200">
+                        <span>📞/✉️</span> {qv.clientContact}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      const target = qv
+                      setQuickViewProject(null)
+                      setEditing(target)
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-brand-blue font-bold text-xs rounded-xl transition-all cursor-pointer border border-blue-200"
+                    title="Edit Project Details"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Edit</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const target = qv
+                      setQuickViewProject(null)
+                      setPrintSingleProject(target)
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-all cursor-pointer border border-gray-200"
+                    title="Print PDF / Single Sheet"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Print PDF</span>
+                  </button>
+                  <button
+                    onClick={() => setQuickViewProject(null)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+                {/* Progress & Live Schedule Grid */}
+                <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 rounded-2xl p-4 border border-gray-200 space-y-3.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-brand-blue" />
+                      <span className="text-xs font-black uppercase tracking-wider text-gray-700">
+                        Stage: <span className="text-brand-blue">{stageObj.label}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 font-bold">Overall Progress:</span>
+                      <span className="text-sm font-black text-emerald-600 bg-white px-2.5 py-0.5 rounded-lg border border-emerald-200 shadow-2xs">
+                        {qv.progress}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className="bg-gradient-to-r from-brand-blue via-indigo-600 to-emerald-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.max(0, qv.progress))}%` }}
+                    />
+                  </div>
+
+                  {/* 4-Item Timeline Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 text-xs border-t border-gray-200/60">
+                    <div className="bg-white p-2.5 rounded-xl border border-gray-200/80 shadow-2xs">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Start Date</span>
+                      <p className="font-bold text-gray-800 mt-0.5">
+                        {qv.startDate ? new Date(qv.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-xl border border-gray-200/80 shadow-2xs">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Target Deadline</span>
+                      <p className="font-bold text-gray-900 mt-0.5">
+                        {qv.deadline ? new Date(qv.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                      </p>
+                      {qv.deadline && (
+                        <span className={`text-[10px] inline-block px-1.5 py-0.5 rounded mt-1 border ${daysInfo.color}`}>
+                          {daysInfo.text}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-xl border border-indigo-200 shadow-2xs">
+                      <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">Time Remaining</span>
+                      <p className="text-xs font-black text-indigo-900 mt-0.5">
+                        {qv.timeRemainingEstimate || 'On Schedule'}
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 shadow-2xs">
+                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Extra Time (Additions)</span>
+                      <p className="text-xs font-black text-rose-700 mt-0.5">
+                        {qv.extraTimeRequired ? `+ ${qv.extraTimeRequired}` : 'None'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financials & Payment Details ("Payment Ka Kya Seen Hai") */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-emerald-600" />
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-800">
+                        Commercials &amp; Payment Breakdown
+                      </h4>
+                    </div>
+                    <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Status: {paymentLabel}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Project Budget</span>
+                      <p className="text-base font-black text-gray-900 mt-0.5">
+                        {qv.budget ? (qv.budget.startsWith('₹') || qv.budget.startsWith('$') ? qv.budget : `₹ ${qv.budget}`) : '—'}
+                      </p>
+                    </div>
+
+                    <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Payment Received</span>
+                      <p className="text-base font-black text-emerald-700 mt-0.5">
+                        {qv.paymentReceived ? (qv.paymentReceived.startsWith('₹') || qv.paymentReceived.startsWith('$') ? qv.paymentReceived : `₹ ${qv.paymentReceived}`) : '₹ 0'}
+                      </p>
+                    </div>
+
+                    <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200">
+                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Payment Pending</span>
+                      <p className="text-base font-black text-amber-700 mt-0.5">
+                        {qv.paymentPending ? (qv.paymentPending.startsWith('₹') || qv.paymentPending.startsWith('$') ? qv.paymentPending : `₹ ${qv.paymentPending}`) : '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {qv.paymentNotes && (
+                    <div className="pt-2 border-t border-gray-100 text-xs">
+                      <span className="text-[11px] font-bold text-gray-500 uppercase block mb-0.5">Payment Terms / Notes:</span>
+                      <p className="text-gray-700 bg-gray-50 p-2.5 rounded-xl border border-gray-200 leading-relaxed">
+                        {qv.paymentNotes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Assigned Team & Tech Stack */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Team Allocation */}
+                  <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-2xs space-y-2">
+                    <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                      <Users className="w-4 h-4 text-brand-blue" />
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-700">
+                        Assigned Team &amp; Developers
+                      </h4>
+                    </div>
+                    {teamList.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {teamList.map((member, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-100 text-slate-800 text-xs font-bold border border-slate-200"
+                          >
+                            <User className="w-3 h-3 text-slate-500" />
+                            {member}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic pt-1">No specific team members assigned.</p>
+                    )}
+                  </div>
+
+                  {/* Tech Stack */}
+                  <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-2xs space-y-2">
+                    <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                      <Code2 className="w-4 h-4 text-purple-600" />
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-gray-700">
+                        Tech Stack &amp; Technologies
+                      </h4>
+                    </div>
+                    {tagsList.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {tagsList.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200/80"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic pt-1">No technology tags recorded.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Current Live Scene (Highlighted Banner) */}
+                <div className="bg-blue-50/80 rounded-2xl p-4 sm:p-5 border border-blue-200/90 shadow-2xs space-y-1.5">
+                  <div className="flex items-center gap-2 text-brand-blue">
+                    <Sparkles className="w-4 h-4" />
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider">
+                      Current Project Scene &amp; Latest Update
+                    </h4>
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-800 font-medium whitespace-pre-wrap leading-relaxed">
+                    {qv.currentStatusNote || qv.notes || 'Project is active. Regular progress is being made as per current milestones.'}
                   </p>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-brand-blue border border-blue-200">
-                    {formatProjectType(quickViewProject.projectType)}
-                  </span>
-                  {quickViewProject.paymentStatus && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      {formatPaymentStatus(quickViewProject.paymentStatus)}
-                    </span>
-                  )}
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const target = quickViewProject
-                    setQuickViewProject(null)
-                    setPrintSingleProject(target)
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Print Sheet
-                </button>
-                <button
-                  onClick={() => setQuickViewProject(null)}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
 
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Stage</span>
-                <p className="text-xs font-bold text-brand-blue mt-0.5">
-                  {STAGE_MAP[quickViewProject.devStage]?.label || 'Planning'}
-                </p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Progress</span>
-                <p className="text-base font-black text-emerald-600 mt-0.5">{quickViewProject.progress}%</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Budget</span>
-                <p className="text-base font-black text-gray-900 mt-0.5">{quickViewProject.budget || '—'}</p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Deadline</span>
-                <p className="text-xs font-bold text-gray-900 mt-1">
-                  {quickViewProject.deadline ? new Date(quickViewProject.deadline).toLocaleDateString('en-IN') : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Time Remaining</span>
-                <p className="text-xs font-bold text-indigo-700 mt-1">
-                  {quickViewProject.timeRemainingEstimate || 'On Schedule'}
-                </p>
-              </div>
-            </div>
+                {/* 3 Process Detail Boxes: Pehle Kya Tha -> Kya Banana Hai -> New Kya Add Hua */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-gray-400" />
+                    Project Process &amp; Scope Progression
+                  </h4>
 
-            {/* Team */}
-            <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Assigned Team</span>
-              <p className="text-sm font-bold text-gray-900">{quickViewProject.assignedTo || 'Unassigned'}</p>
-            </div>
+                  {/* Box 1: Initial Requirement ("Project Pehle Kya Tha") */}
+                  <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-slate-500" />
+                        Project Background ("Project Pehle Kya Tha" — Initial Client Brief)
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {qv.initialRequirement || 'No prior system recorded. Started as a greenfield project from client brief.'}
+                    </p>
+                  </div>
 
-            {/* Current Scene */}
-            <div className="p-3.5 bg-blue-50/50 rounded-xl border border-blue-100 space-y-1">
-              <span className="text-[10px] font-bold text-brand-blue uppercase tracking-wider block">Current Project Scene</span>
-              <p className="text-xs text-gray-800 font-medium whitespace-pre-wrap">
-                {quickViewProject.currentStatusNote || quickViewProject.notes || '—'}
-              </p>
-            </div>
+                  {/* Box 2: Scope Deliverables ("Kya-Kya Banana Hai") */}
+                  <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-2xs space-y-1.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Agreed Deliverables ("Kya-Kya Banana Hai" — Scope of Work)
+                    </span>
+                    <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                      {qv.scopeFeatures || qv.description || 'Full scope agreed upon during technical proposal discussion.'}
+                    </p>
+                  </div>
 
-            {/* Project Background / Initial Requirement */}
-            {quickViewProject.initialRequirement && (
-              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
-                  Project Background ("Project Pehle Kya Tha" — Initial Scope)
+                  {/* Box 3: Client Additions ("New Kya Add Karwaya") */}
+                  <div className="bg-amber-50/60 rounded-2xl p-4 border border-amber-200/90 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                        Client Additions ("New Kya Add Karwaya" — Scope Revisions)
+                      </span>
+                      {qv.extraTimeRequired && (
+                        <span className="text-[11px] font-black px-2.5 py-0.5 rounded-lg bg-white text-rose-700 border border-rose-200 shadow-2xs">
+                          ⏱️ Additional Time: {qv.extraTimeRequired}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-amber-950 whitespace-pre-wrap leading-relaxed">
+                      {qv.changeRequests || 'No mid-development client additions recorded.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Links Section (Live, Demo, Repository) */}
+                {(qv.liveUrl || qv.stagingUrl || qv.repoUrl) && (
+                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 space-y-2">
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <Link2 className="w-4 h-4" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider">Project URLs &amp; Access</h4>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {qv.liveUrl && (
+                        <a
+                          href={qv.liveUrl.startsWith('http') ? qv.liveUrl : `https://${qv.liveUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-brand-blue rounded-xl text-xs font-bold border border-blue-200 transition-colors"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Live Website</span>
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </a>
+                      )}
+                      {qv.stagingUrl && (
+                        <a
+                          href={qv.stagingUrl.startsWith('http') ? qv.stagingUrl : `https://${qv.stagingUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-bold border border-amber-200 transition-colors"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Staging / Demo</span>
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </a>
+                      )}
+                      {qv.repoUrl && (
+                        <a
+                          href={qv.repoUrl.startsWith('http') ? qv.repoUrl : `https://${qv.repoUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-xl text-xs font-bold border border-purple-200 transition-colors"
+                        >
+                          <Code2 className="w-3.5 h-3.5" />
+                          <span>Source Repository</span>
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Attachments Section if present */}
+                {Array.isArray(qv.attachments) && qv.attachments.length > 0 && (
+                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 space-y-2">
+                    <div className="flex items-center gap-1.5 text-gray-700">
+                      <Paperclip className="w-4 h-4" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider">Project Files &amp; Attachments ({qv.attachments.length})</h4>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {qv.attachments.map((att) => (
+                        <a
+                          key={att.id}
+                          href={att.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200 hover:border-brand-blue text-xs transition-colors"
+                        >
+                          <span className="font-semibold text-gray-800 truncate">{att.fileName}</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-2" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer (Sticky) */}
+              <div className="px-5 py-3.5 sm:px-7 border-t border-gray-100 flex items-center justify-between bg-gray-50/90 text-xs z-10">
+                <span className="text-[11px] text-gray-400">
+                  Added on: {qv.createdAt ? new Date(qv.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently'}
                 </span>
-                <p className="text-xs text-gray-700 whitespace-pre-wrap">
-                  {quickViewProject.initialRequirement}
-                </p>
-              </div>
-            )}
-
-            {/* Scope vs Changes */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 bg-white rounded-xl border border-gray-200 space-y-1">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Scope of Work ("Kya Banana Hai")</span>
-                <p className="text-xs text-gray-700 whitespace-pre-wrap">
-                  {quickViewProject.scopeFeatures || quickViewProject.description || 'Deliverables as per initial agreement.'}
-                </p>
-              </div>
-              <div className="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
-                    Client Additions ("New Kya Add Hua")
-                  </span>
-                  {quickViewProject.extraTimeRequired && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white text-rose-700 border border-rose-200">
-                      ⏱️ {quickViewProject.extraTimeRequired}
-                    </span>
-                  )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const target = qv
+                      setQuickViewProject(null)
+                      setPrintSingleProject(target)
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 font-bold rounded-xl cursor-pointer transition-all"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print PDF Sheet</span>
+                  </button>
+                  <button
+                    onClick={() => setQuickViewProject(null)}
+                    className="px-4 py-1.5 bg-gray-900 hover:bg-black text-white font-bold rounded-xl cursor-pointer transition-all"
+                  >
+                    Close
+                  </button>
                 </div>
-                <p className="text-xs text-amber-950 whitespace-pre-wrap">
-                  {quickViewProject.changeRequests || 'None recorded.'}
-                </p>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Single Project Sheet Modal ─────────────────────────── */}
       {printSingleProject && (
