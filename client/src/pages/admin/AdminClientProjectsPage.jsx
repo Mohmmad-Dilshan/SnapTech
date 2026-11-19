@@ -911,10 +911,63 @@ function PrintSingleProjectModal({ project, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print:bg-white print:p-0 print:items-start print:justify-center print:overflow-visible">
-      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-8 print:pt-10 print:rounded-none print:overflow-visible">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print-modal-overlay">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm;
+          }
+          html, body, #root, #root div, main {
+            background: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+          }
+          aside, header, nav, [role="navigation"], .print-hidden {
+            display: none !important;
+          }
+          .print-modal-overlay {
+            position: static !important;
+            inset: auto !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          .print-modal-sheet {
+            position: static !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .print-avoid-break {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
+      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print-modal-sheet">
         {/* Print Controls Header (Hidden during actual print) */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden print-hidden">
           <div className="flex items-center gap-2">
             <span className="p-2 bg-brand-blue/10 text-brand-blue rounded-xl">
               <Printer className="w-5 h-5" />
@@ -942,9 +995,9 @@ function PrintSingleProjectModal({ project, onClose }) {
         </div>
 
         {/* Printable Document Body */}
-        <div className="space-y-6 text-gray-900 font-sans print:space-y-4">
+        <div className="space-y-5 text-gray-900 font-sans print:space-y-3.5">
           {/* Header */}
-          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-4">
+          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-3.5 print-avoid-break">
             <div>
               <h1 className="text-2xl font-black text-brand-blue tracking-tight">SnapTech Digital</h1>
               <p className="text-xs text-gray-500 mt-0.5">Software Engineering &bull; Digital Solutions Studio</p>
@@ -960,7 +1013,7 @@ function PrintSingleProjectModal({ project, onClose }) {
           </div>
 
           {/* Title & Core Grid */}
-          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
+          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 print-avoid-break">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-black text-gray-900">{project.projectTitle}</h2>
@@ -1005,7 +1058,7 @@ function PrintSingleProjectModal({ project, onClose }) {
           </div>
 
           {/* Team Assigned */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1 print-avoid-break">
             <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
               👥 Assigned Developers &amp; Team
             </h4>
@@ -1015,7 +1068,7 @@ function PrintSingleProjectModal({ project, onClose }) {
           </div>
 
           {/* Current Status Scene */}
-          <div className="bg-blue-50/40 p-4 rounded-2xl border border-blue-200/80 space-y-1">
+          <div className="bg-blue-50/40 p-4 rounded-2xl border border-blue-200/80 space-y-1 print-avoid-break">
             <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-brand-blue">
               📍 Current Scene &amp; Latest Status
             </h4>
@@ -1026,7 +1079,7 @@ function PrintSingleProjectModal({ project, onClose }) {
 
           {/* Project Story / Evolution (If Initial Requirement Recorded) */}
           {project.initialRequirement && (
-            <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-1">
+            <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-1 print-avoid-break">
               <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                 <span>📜</span> Project Background ("Project Pehle Kya Tha" — Initial Scope)
               </h4>
@@ -1037,7 +1090,7 @@ function PrintSingleProjectModal({ project, onClose }) {
           )}
 
           {/* Scope Features vs Changes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print-avoid-break">
             <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
               <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
                 📝 Agreed Deliverables ("Kya Kya Banana Hai")
@@ -1066,7 +1119,7 @@ function PrintSingleProjectModal({ project, onClose }) {
           </div>
 
           {/* Commercials Summary */}
-          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
+          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 print-avoid-break">
             <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 mb-2">
               💰 Financials &amp; Payment Status
             </h4>
@@ -1093,7 +1146,7 @@ function PrintSingleProjectModal({ project, onClose }) {
 
           {/* Technical Links */}
           {(project.liveUrl || project.stagingUrl || project.repoUrl) && (
-            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex items-center gap-4 text-xs flex-wrap">
+            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex items-center gap-4 text-xs flex-wrap print-avoid-break">
               <span className="font-bold text-gray-500">Links:</span>
               {project.liveUrl && (
                 <span className="text-brand-blue font-mono text-[11px]">Live: {project.liveUrl}</span>
@@ -1108,7 +1161,7 @@ function PrintSingleProjectModal({ project, onClose }) {
           )}
 
           {/* Print Footer */}
-          <div className="pt-4 border-t border-gray-200 flex justify-between items-center text-[10px] text-gray-400">
+          <div className="pt-4 border-t border-gray-200 flex justify-between items-center text-[10px] text-gray-400 print-avoid-break">
             <p>SnapTech Digital &bull; Confidential Management Documentation</p>
             <p>Printed by Project Lead / Management</p>
           </div>
@@ -1138,10 +1191,63 @@ function PrintMasterReportModal({ projects = [], onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print:bg-white print:p-0 print:items-start print:justify-center print:overflow-visible">
-      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-8 print:pt-10 print:rounded-none print:overflow-visible">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print-modal-overlay">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 10mm 10mm;
+          }
+          html, body, #root, #root div, main {
+            background: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+          }
+          aside, header, nav, [role="navigation"], .print-hidden {
+            display: none !important;
+          }
+          .print-modal-overlay {
+            position: static !important;
+            inset: auto !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          .print-modal-sheet {
+            position: static !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .print-avoid-break {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
+      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print-modal-sheet">
         {/* Controls Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden print-hidden">
           <div className="flex items-center gap-2">
             <span className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
               <Printer className="w-5 h-5" />
@@ -1232,7 +1338,7 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                 {projects.map((p, idx) => {
                   const stage = STAGE_MAP[p.devStage] || DEV_STAGES[0]
                   return (
-                    <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
+                    <tr key={p.id} className="hover:bg-gray-50/60 transition-colors print-avoid-break">
                       <td className="p-2.5 font-bold text-gray-400">{idx + 1}</td>
                       <td className="p-2.5 font-bold text-gray-900 max-w-[190px]">
                         <div>{p.projectTitle}</div>
@@ -1540,7 +1646,7 @@ export default function AdminClientProjectsPage() {
         description="Comprehensive development projects tracking, team allocation, stage lifecycles, change requests, and executive management reporting."
       />
 
-      <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      <div className={`space-y-6 max-w-7xl mx-auto pb-16 ${printingProject || showMasterReport ? 'print-hidden print:hidden' : ''}`}>
         {/* ── Top Header Section ─────────────────────────────────── */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-gray-200 pb-5">
           <div className="flex items-start sm:items-center gap-3">
