@@ -911,8 +911,8 @@ function PrintSingleProjectModal({ project, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print:bg-white print:p-0 print:items-start print:justify-center print:overflow-visible">
+      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-8 print:pt-10 print:rounded-none print:overflow-visible">
         {/* Print Controls Header (Hidden during actual print) */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden">
           <div className="flex items-center gap-2">
@@ -1138,8 +1138,8 @@ function PrintMasterReportModal({ projects = [], onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print:bg-white print:p-0 print:items-start print:justify-center print:overflow-visible">
+      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-8 print:pt-10 print:rounded-none print:overflow-visible">
         {/* Controls Header */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden">
           <div className="flex items-center gap-2">
