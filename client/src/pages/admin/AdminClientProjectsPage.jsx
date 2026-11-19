@@ -1542,23 +1542,25 @@ export default function AdminClientProjectsPage() {
 
       <div className="space-y-6 max-w-7xl mx-auto pb-16">
         {/* ── Top Header Section ─────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-gray-900 tracking-tight flex items-center gap-2.5">
-              <span className="p-2 bg-brand-blue/10 text-brand-blue rounded-xl">
-                <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6" />
-              </span>
-              Company Development Projects Tracker
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Internal &bull; Client Projects &bull; Lifecycle Stages &bull; Assigned Team &bull; Management Reports
-            </p>
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-gray-200 pb-5">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-brand-blue/10 flex items-center justify-center shrink-0 text-brand-blue shadow-2xs">
+              <FolderOpen className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-gray-900 tracking-tight">
+                Company Development Projects Tracker
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                Internal &bull; Client Projects &bull; Lifecycle Stages &bull; Assigned Team &bull; Management Reports
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-nowrap overflow-x-auto no-scrollbar py-1">
             <button
               onClick={() => refetch()}
-              className="p-2.5 text-gray-500 hover:text-brand-blue hover:bg-blue-50 rounded-xl border border-gray-200 transition-all cursor-pointer bg-white"
+              className="p-2 sm:p-2.5 text-gray-500 hover:text-brand-blue hover:bg-blue-50 rounded-xl border border-gray-200 transition-all cursor-pointer bg-white shadow-2xs shrink-0"
               title="Refresh Projects"
             >
               <RefreshCw className="w-4 h-4" />
@@ -1567,7 +1569,7 @@ export default function AdminClientProjectsPage() {
             {/* Export to Excel Button */}
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 sm:gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
               title="Download Excel spreadsheet of projects"
             >
               <FileSpreadsheet className="w-4 h-4" />
@@ -1577,7 +1579,7 @@ export default function AdminClientProjectsPage() {
             {/* Master Report (Print All) */}
             <button
               onClick={() => setShowMasterReport(true)}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 sm:gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/20 hover:-translate-y-0.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
               title="Print All Projects Master Executive Report for Management"
             >
               <Printer className="w-4 h-4" />
@@ -1591,7 +1593,7 @@ export default function AdminClientProjectsPage() {
                 setShowForm(!showForm)
                 window.scrollTo({ top: 0, behavior: 'smooth' })
               }}
-              className="flex items-center gap-2 bg-brand-blue hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-brand-blue/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 sm:gap-2 bg-brand-blue hover:bg-blue-600 text-white px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-brand-blue/20 hover:-translate-y-0.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>{showForm ? 'Close Form' : 'Add Project'}</span>
@@ -1826,15 +1828,15 @@ export default function AdminClientProjectsPage() {
                       <div className="min-w-0 flex-1">
                         <h3
                           onClick={() => setQuickViewProject(p)}
-                          className="font-extrabold font-heading text-sm sm:text-base text-gray-900 truncate hover:text-brand-blue transition-colors cursor-pointer"
+                          className="font-extrabold font-heading text-sm sm:text-base text-gray-900 line-clamp-2 hover:text-brand-blue transition-colors cursor-pointer leading-snug"
                           title={p.projectTitle}
                         >
                           {p.projectTitle}
                         </h3>
-                        <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 font-medium">
+                        <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-medium flex-wrap">
                           <Building2 className="w-3 h-3 text-gray-400 shrink-0" />
                           <strong className="text-gray-800">{p.clientName}</strong>
-                          {p.clientContact && <span className="text-gray-400 truncate max-w-[120px]">({p.clientContact})</span>}
+                          {p.clientContact && <span className="text-gray-400">({p.clientContact})</span>}
                         </p>
                       </div>
 
