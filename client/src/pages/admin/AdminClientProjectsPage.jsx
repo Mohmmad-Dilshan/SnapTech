@@ -905,29 +905,98 @@ function PrintSingleProjectModal({ project, onClose }) {
 
   const stageObj = STAGE_MAP[project.devStage] || DEV_STAGES[0]
   const typeLabel = formatProjectType(project.projectType)
+  const paymentLabel = formatPaymentStatus(project.paymentStatus)
+
+  const tagsList = Array.isArray(project.tags)
+    ? project.tags
+    : typeof project.tags === 'string'
+      ? project.tags.split(',').map((t) => t.trim()).filter(Boolean)
+      : []
+
+  const teamList = project.assignedTo
+    ? project.assignedTo.split(',').map((m) => m.trim()).filter(Boolean)
+    : []
 
   const handlePrint = () => {
     window.print()
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print-modal-overlay">
+      {/* Print Specific CSS Engine Overrides — Eliminates clipping and fixed container trapping */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm !important;
+          }
+          html, body, #root, #root > div, main {
+            background: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+          }
+          aside, header, nav, [role="navigation"], .print-hidden {
+            display: none !important;
+          }
+          .print-modal-overlay {
+            position: static !important;
+            inset: auto !important;
+            background: #ffffff !important;
+            backdrop-filter: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          .print-modal-sheet {
+            position: static !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print-avoid-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+        }
+      `}</style>
+
+      <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print-modal-sheet print:shadow-none print:border-none print:max-h-none print:p-0 print:max-w-none print:w-full print:overflow-visible print:space-y-3.5">
         {/* Print Controls Header (Hidden during actual print) */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden print-hidden">
           <div className="flex items-center gap-2">
             <span className="p-2 bg-brand-blue/10 text-brand-blue rounded-xl">
               <Printer className="w-5 h-5" />
             </span>
             <div>
               <h3 className="text-base font-extrabold text-gray-900">Project Status Sheet</h3>
-              <p className="text-xs text-gray-500">Executive summary for management &amp; client records</p>
+              <p className="text-xs text-gray-500">Official management report &amp; client documentation</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 bg-brand-blue hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+              className="flex items-center gap-2 bg-brand-blue hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shadow-md shadow-brand-blue/20"
             >
               <Printer className="w-4 h-4" />
               <span>Print / Save as PDF</span>
@@ -942,93 +1011,166 @@ function PrintSingleProjectModal({ project, onClose }) {
         </div>
 
         {/* Printable Document Body */}
-        <div className="space-y-6 text-gray-900 font-sans print:space-y-4">
-          {/* Header */}
-          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-4">
+        <div className="space-y-4 text-gray-900 font-sans print:space-y-3">
+          {/* Company & Document Header */}
+          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-3 print-avoid-break">
             <div>
-              <h1 className="text-2xl font-black text-brand-blue tracking-tight">SnapTech Digital</h1>
-              <p className="text-xs text-gray-500 mt-0.5">Software Engineering &bull; Digital Solutions Studio</p>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-brand-blue inline-block"></span>
+                <h1 className="text-2xl font-black text-brand-blue tracking-tight">SnapTech Digital</h1>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">Software Engineering &bull; Digital Solutions Studio &bull; Official Project Brief</p>
             </div>
             <div className="text-right text-xs">
-              <span className="px-2.5 py-1 bg-gray-100 font-bold rounded-lg border border-gray-200 text-gray-800">
-                PROJECT STATUS BRIEF
+              <span className="px-2.5 py-1 bg-gray-100 font-extrabold rounded-lg border border-gray-200 text-gray-800 text-[11px] tracking-wide inline-block">
+                PROJECT STATUS SHEET
               </span>
-              <p className="text-[11px] text-gray-400 mt-1.5">
-                Report Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              <p className="text-[11px] text-gray-500 mt-1 font-medium">
+                Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>
             </div>
           </div>
 
-          {/* Title & Core Grid */}
-          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-black text-gray-900">{project.projectTitle}</h2>
-                <p className="text-xs text-gray-600 font-medium mt-1">
-                  Client: <strong className="text-gray-900">{project.clientName}</strong>
-                  {project.clientContact && ` • ${project.clientContact}`}
-                </p>
+          {/* Project Title & Status Banner */}
+          <div className="bg-gray-50/90 p-4 rounded-2xl border border-gray-200 print-avoid-break space-y-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight">
+                  {project.projectTitle}
+                </h2>
+                <div className="flex items-center gap-2 mt-1 text-xs text-gray-600 flex-wrap">
+                  <span className="font-bold text-gray-900 flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5 text-brand-blue" />
+                    Client: {project.clientName}
+                  </span>
+                  {project.clientContact && (
+                    <span className="text-gray-500 font-medium">
+                      &bull; Contact: {project.clientContact}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="text-right shrink-0">
-                <span className="text-xs font-bold px-2 py-0.5 rounded border bg-white text-gray-800">
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <span className="text-xs font-bold px-2.5 py-1 rounded-lg border bg-white text-gray-800">
                   {typeLabel}
+                </span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${STATUS_COLORS[project.status] || 'bg-gray-100'}`}>
+                  {STATUS_LABELS[project.status] || project.status}
+                </span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${PRIORITY_COLORS[project.priority] || 'bg-gray-100'}`}>
+                  {project.priority} Priority
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-3 border-t border-gray-200/80 text-xs">
+            {/* Core Schedule & Timeline 6-Grid */}
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 pt-3 border-t border-gray-200 text-xs">
               <div>
                 <span className="text-gray-400 text-[10px] uppercase font-bold block">Current Stage</span>
-                <span className="font-bold text-brand-blue">{stageObj.label}</span>
+                <span className="font-extrabold text-brand-blue">{stageObj.label}</span>
               </div>
               <div>
                 <span className="text-gray-400 text-[10px] uppercase font-bold block">Progress</span>
                 <span className="font-extrabold text-emerald-600">{project.progress}% Complete</span>
               </div>
               <div>
-                <span className="text-gray-400 text-[10px] uppercase font-bold block">Health &amp; Status</span>
-                <span className="font-bold">{HEALTH_LABELS[project.health] || 'On Track'} &bull; {STATUS_LABELS[project.status]}</span>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Health</span>
+                <span className="font-extrabold text-gray-800">{HEALTH_LABELS[project.health] || 'On Track'}</span>
               </div>
               <div>
-                <span className="text-gray-400 text-[10px] uppercase font-bold block">Deadline</span>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Start Date</span>
+                <span className="font-bold text-gray-800">
+                  {project.startDate ? new Date(project.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Target Deadline</span>
                 <span className="font-bold text-gray-900">
-                  {project.deadline ? new Date(project.deadline).toLocaleDateString('en-IN') : 'N/A'}
+                  {project.deadline ? new Date(project.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
                 </span>
               </div>
               <div>
                 <span className="text-gray-400 text-[10px] uppercase font-bold block">Time Remaining</span>
-                <span className="font-extrabold text-brand-blue">
+                <span className="font-extrabold text-indigo-700">
                   {project.timeRemainingEstimate || 'On Schedule'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Team Assigned */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
-              👥 Assigned Developers &amp; Team
-            </h4>
-            <p className="text-sm font-bold text-gray-900">
-              {project.assignedTo || 'Unassigned / Core Team'}
-            </p>
+          {/* Team Assigned & Tech Stack */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 print-avoid-break">
+            <div className="bg-white p-3.5 rounded-2xl border border-gray-200 space-y-1">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                👥 Assigned Developers &amp; Team
+              </h4>
+              <p className="text-xs sm:text-sm font-bold text-gray-900">
+                {teamList.length > 0 ? teamList.join(' • ') : 'Unassigned / Core Technical Team'}
+              </p>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-2xl border border-gray-200 space-y-1">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                💻 Tech Stack &amp; Technologies
+              </h4>
+              <p className="text-xs sm:text-sm font-bold text-purple-800">
+                {tagsList.length > 0 ? tagsList.join(' • ') : 'Modern Full-Stack Stack'}
+              </p>
+            </div>
           </div>
 
-          {/* Current Status Scene */}
-          <div className="bg-blue-50/40 p-4 rounded-2xl border border-blue-200/80 space-y-1">
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-brand-blue">
+          {/* Commercials Summary */}
+          <div className="bg-gray-50/90 p-4 rounded-2xl border border-gray-200 print-avoid-break space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                💰 Financials &amp; Payment Status
+              </h4>
+              <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md bg-white border border-emerald-200 text-emerald-800">
+                {paymentLabel}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Total Budget</span>
+                <span className="font-extrabold text-base text-gray-900">
+                  {project.budget ? (project.budget.startsWith('₹') || project.budget.startsWith('$') ? project.budget : `₹ ${project.budget}`) : '₹ Custom'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Payment Received</span>
+                <span className="font-extrabold text-base text-emerald-600">
+                  {project.paymentReceived ? (project.paymentReceived.startsWith('₹') || project.paymentReceived.startsWith('$') ? project.paymentReceived : `₹ ${project.paymentReceived}`) : '₹ 0'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Payment Pending</span>
+                <span className="font-extrabold text-base text-amber-600">
+                  {project.paymentPending ? (project.paymentPending.startsWith('₹') || project.paymentPending.startsWith('$') ? project.paymentPending : `₹ ${project.paymentPending}`) : '—'}
+                </span>
+              </div>
+            </div>
+            {project.paymentNotes && (
+              <p className="text-[11px] text-gray-600 mt-2 border-t border-gray-200 pt-1.5">
+                <strong>Payment Notes / Terms:</strong> {project.paymentNotes}
+              </p>
+            )}
+          </div>
+
+          {/* Current Live Status Scene */}
+          <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-200/80 space-y-1 print-avoid-break">
+            <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-brand-blue">
               📍 Current Scene &amp; Latest Status
             </h4>
             <p className="text-xs text-gray-800 font-medium whitespace-pre-wrap leading-relaxed">
-              {project.currentStatusNote || project.notes || 'Project is proceeding as per schedule.'}
+              {project.currentStatusNote || project.notes || 'Project is active and proceeding as per agreed milestones.'}
             </p>
           </div>
 
-          {/* Project Story / Evolution (If Initial Requirement Recorded) */}
+          {/* Project Story / Initial Requirement (Background) */}
           {project.initialRequirement && (
-            <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-1">
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-                <span>📜</span> Project Background ("Project Pehle Kya Tha" — Initial Scope)
+            <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-1 print-avoid-break">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-gray-600">
+                📜 Project Background ("Project Pehle Kya Tha" — Initial Scope)
               </h4>
               <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
                 {project.initialRequirement}
@@ -1037,64 +1179,37 @@ function PrintSingleProjectModal({ project, onClose }) {
           )}
 
           {/* Scope Features vs Changes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 print-avoid-break">
+            <div className="bg-white p-3.5 rounded-2xl border border-gray-200 space-y-1">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-gray-600">
                 📝 Agreed Deliverables ("Kya Kya Banana Hai")
               </h4>
               <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {project.scopeFeatures || project.description || 'Deliverables as per work agreement.'}
+                {project.scopeFeatures || project.description || 'Deliverables as per technical agreement.'}
               </p>
             </div>
 
-            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-200 space-y-1.5">
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 flex items-center gap-1">
-                <span>⚠️</span> Client Additions ("New Kya Add Karwaya")
-              </h4>
+            <div className="bg-amber-50/50 p-3.5 rounded-2xl border border-amber-200 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-amber-900">
+                  ⚠️ Client Additions ("New Kya Add Karwaya")
+                </h4>
+                {project.extraTimeRequired && (
+                  <span className="text-[10px] font-black text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200">
+                    ⏱️ +{project.extraTimeRequired}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-amber-950 whitespace-pre-wrap leading-relaxed">
                 {project.changeRequests || 'No additional change requests recorded.'}
               </p>
-              {project.extraTimeRequired && (
-                <div className="pt-1.5 border-t border-amber-200/80 flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-amber-900">Extra Time Added:</span>
-                  <span className="font-black text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200">
-                    ⏱️ {project.extraTimeRequired}
-                  </span>
-                </div>
-              )}
             </div>
-          </div>
-
-          {/* Commercials Summary */}
-          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 mb-2">
-              💰 Financials &amp; Payment Status
-            </h4>
-            <div className="grid grid-cols-3 gap-3 text-xs">
-              <div>
-                <span className="text-gray-400 text-[10px] uppercase font-bold block">Total Budget</span>
-                <span className="font-extrabold text-base text-gray-900">{project.budget || '₹ Custom'}</span>
-              </div>
-              <div>
-                <span className="text-gray-400 text-[10px] uppercase font-bold block">Received</span>
-                <span className="font-extrabold text-base text-emerald-600">{project.paymentReceived || '—'}</span>
-              </div>
-              <div>
-                <span className="text-gray-400 text-[10px] uppercase font-bold block">Pending</span>
-                <span className="font-extrabold text-base text-amber-600">{project.paymentPending || '—'}</span>
-              </div>
-            </div>
-            {project.paymentNotes && (
-              <p className="text-[11px] text-gray-500 mt-2 border-t border-gray-200 pt-1.5">
-                Notes: {project.paymentNotes}
-              </p>
-            )}
           </div>
 
           {/* Technical Links */}
           {(project.liveUrl || project.stagingUrl || project.repoUrl) && (
-            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex items-center gap-4 text-xs flex-wrap">
-              <span className="font-bold text-gray-500">Links:</span>
+            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex items-center gap-4 text-xs flex-wrap print-avoid-break">
+              <span className="font-bold text-gray-500">Access URLs:</span>
               {project.liveUrl && (
                 <span className="text-brand-blue font-mono text-[11px]">Live: {project.liveUrl}</span>
               )}
@@ -1107,10 +1222,18 @@ function PrintSingleProjectModal({ project, onClose }) {
             </div>
           )}
 
-          {/* Print Footer */}
-          <div className="pt-4 border-t border-gray-200 flex justify-between items-center text-[10px] text-gray-400">
-            <p>SnapTech Digital &bull; Confidential Management Documentation</p>
-            <p>Printed by Project Lead / Management</p>
+          {/* Sign-off & Verification Section */}
+          <div className="pt-4 border-t border-gray-200 grid grid-cols-2 gap-8 text-[11px] text-gray-500 print-avoid-break">
+            <div>
+              <p className="font-bold text-gray-700">SnapTech Digital Lead</p>
+              <div className="mt-6 border-b border-gray-300 w-36"></div>
+              <p className="text-[10px] text-gray-400 mt-1">Authorized Project Manager</p>
+            </div>
+            <div className="text-right">
+              <p className="font-bold text-gray-700">Client / Management Sign-off</p>
+              <div className="mt-6 border-b border-gray-300 w-36 ml-auto"></div>
+              <p className="text-[10px] text-gray-400 mt-1">Status Verified &bull; Confidential</p>
+            </div>
           </div>
         </div>
       </div>
@@ -1138,10 +1261,68 @@ function PrintMasterReportModal({ projects = [], onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print:shadow-none print:border-none print:max-h-none print:p-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print-modal-overlay">
+      {/* Print Specific CSS Engine Overrides */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 8mm 10mm !important;
+          }
+          html, body, #root, #root > div, main {
+            background: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+          }
+          aside, header, nav, [role="navigation"], .print-hidden {
+            display: none !important;
+          }
+          .print-modal-overlay {
+            position: static !important;
+            inset: auto !important;
+            background: #ffffff !important;
+            backdrop-filter: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          .print-modal-sheet {
+            position: static !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print-avoid-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+        }
+      `}</style>
+
+      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print-modal-sheet print:shadow-none print:border-none print:max-h-none print:p-0 print:max-w-none print:w-full print:overflow-visible print:space-y-4">
         {/* Controls Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden print-hidden">
           <div className="flex items-center gap-2">
             <span className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
               <Printer className="w-5 h-5" />
@@ -1169,25 +1350,28 @@ function PrintMasterReportModal({ projects = [], onClose }) {
         </div>
 
         {/* Printable Master Report Body */}
-        <div className="space-y-6 text-gray-900 font-sans print:space-y-4">
+        <div className="space-y-5 text-gray-900 font-sans print:space-y-3.5">
           {/* Header */}
-          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-4">
+          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-3.5 print-avoid-break">
             <div>
-              <h1 className="text-2xl font-black text-brand-blue tracking-tight">SnapTech Digital</h1>
-              <p className="text-xs text-gray-500 mt-0.5">Software Development &bull; Engineering Status Report</p>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-brand-blue inline-block"></span>
+                <h1 className="text-2xl font-black text-brand-blue tracking-tight">SnapTech Digital</h1>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">Software Engineering &bull; Portfolio Engineering Status Report</p>
             </div>
             <div className="text-right text-xs">
-              <span className="px-2.5 py-1 bg-gray-100 font-bold rounded-lg border border-gray-200 text-gray-800">
+              <span className="px-2.5 py-1 bg-gray-100 font-extrabold rounded-lg border border-gray-200 text-gray-800 text-[11px] inline-block">
                 EXECUTIVE MANAGEMENT REPORT
               </span>
-              <p className="text-[11px] text-gray-400 mt-1.5">
+              <p className="text-[11px] text-gray-500 mt-1 font-medium">
                 Generated: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>
             </div>
           </div>
 
           {/* Executive KPI Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 print-avoid-break">
             <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-center">
               <span className="text-[10px] font-bold text-gray-400 uppercase block">Total Projects</span>
               <span className="text-xl font-black text-gray-900">{stats.total}</span>
@@ -1213,7 +1397,7 @@ function PrintMasterReportModal({ projects = [], onClose }) {
           </div>
 
           {/* Master Table */}
-          <div className="overflow-x-auto border border-gray-200 rounded-xl">
+          <div className="overflow-x-auto border border-gray-200 rounded-xl print:overflow-visible">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-gray-100 text-gray-700 uppercase tracking-wider text-[10px] font-bold border-b border-gray-200">
                 <tr>
@@ -1232,7 +1416,7 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                 {projects.map((p, idx) => {
                   const stage = STAGE_MAP[p.devStage] || DEV_STAGES[0]
                   return (
-                    <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
+                    <tr key={p.id} className="hover:bg-gray-50/60 transition-colors print-avoid-break">
                       <td className="p-2.5 font-bold text-gray-400">{idx + 1}</td>
                       <td className="p-2.5 font-bold text-gray-900 max-w-[190px]">
                         <div>{p.projectTitle}</div>
@@ -1246,7 +1430,7 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                           {stage.label.split('. ')[1] || stage.label}
                         </span>
                       </td>
-                      <td className="p-2.5 text-gray-600 max-w-[140px] truncate" title={p.assignedTo}>
+                      <td className="p-2.5 text-gray-600 max-w-[140px]" title={p.assignedTo}>
                         {p.assignedTo || 'Unassigned'}
                       </td>
                       <td className="p-2.5 font-mono font-bold text-brand-blue">{p.progress}%</td>
@@ -1267,9 +1451,9 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                         </span>
                       </td>
                       <td className="p-2.5 text-[11px] text-gray-700 max-w-[220px]">
-                        <p className="line-clamp-2">{p.currentStatusNote || p.notes || '—'}</p>
+                        <p>{p.currentStatusNote || p.notes || '—'}</p>
                         {p.changeRequests && (
-                          <p className="text-[10px] text-amber-700 font-bold mt-0.5 line-clamp-1">
+                          <p className="text-[10px] text-amber-700 font-bold mt-0.5">
                             +Scope: {p.changeRequests}
                             {p.extraTimeRequired && ` (${p.extraTimeRequired})`}
                           </p>
@@ -1283,7 +1467,7 @@ function PrintMasterReportModal({ projects = [], onClose }) {
           </div>
 
           {/* Footer */}
-          <div className="pt-4 border-t border-gray-200 flex justify-between items-center text-[10px] text-gray-400">
+          <div className="pt-4 border-t border-gray-200 flex justify-between items-center text-[10px] text-gray-400 print-avoid-break">
             <p>SnapTech Digital &bull; Confidential Executive Document</p>
             <p>Report Compiled for Management &amp; Boss Review</p>
           </div>
