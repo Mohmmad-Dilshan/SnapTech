@@ -1028,6 +1028,14 @@ function printHtmlDocument(title, bodyHtml, isLandscape = false) {
       padding-top: 10px;
       margin-top: 8px;
     }
+    .grid-6 {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+      margin-top: 8px;
+    }
     .grid-label {
       font-size: 9px;
       text-transform: uppercase;
@@ -1135,6 +1143,7 @@ function generateSingleProjectHTML(project) {
   const typeLabel = formatProjectType(project.projectType)
   const healthLabel = HEALTH_LABELS[project.health] || 'On Track'
   const statusLabel = STATUS_LABELS[project.status] || project.status
+  const startDateStr = project.startDate ? new Date(project.startDate).toLocaleDateString('en-IN') : 'N/A'
   const deadlineStr = project.deadline ? new Date(project.deadline).toLocaleDateString('en-IN') : 'N/A'
   const reportDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
@@ -1165,7 +1174,7 @@ function generateSingleProjectHTML(project) {
         </div>
       </div>
 
-      <div class="grid-5">
+      <div class="grid-6">
         <div>
           <span class="grid-label">Current Stage</span>
           <span class="grid-val" style="color: #1B6EF3;">${escapePrintHtml(stageObj.label)}</span>
@@ -1179,8 +1188,12 @@ function generateSingleProjectHTML(project) {
           <span class="grid-val">${escapePrintHtml(healthLabel)} &bull; ${escapePrintHtml(statusLabel)}</span>
         </div>
         <div>
+          <span class="grid-label">Start Date</span>
+          <span class="grid-val" style="color: #0f172a;">${escapePrintHtml(startDateStr)}</span>
+        </div>
+        <div>
           <span class="grid-label">Deadline</span>
-          <span class="grid-val">${escapePrintHtml(deadlineStr)}</span>
+          <span class="grid-val" style="color: #0f172a;">${escapePrintHtml(deadlineStr)}</span>
         </div>
         <div>
           <span class="grid-label">Time Remaining</span>
@@ -1358,7 +1371,7 @@ function PrintSingleProjectModal({ project, onClose }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-3 border-t border-gray-200/80 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 mt-4 pt-3 border-t border-gray-200/80 text-xs">
               <div>
                 <span className="text-gray-400 text-[10px] uppercase font-bold block">Current Stage</span>
                 <span className="font-bold text-brand-blue">{stageObj.label}</span>
@@ -1370,6 +1383,12 @@ function PrintSingleProjectModal({ project, onClose }) {
               <div>
                 <span className="text-gray-400 text-[10px] uppercase font-bold block">Health &amp; Status</span>
                 <span className="font-bold">{HEALTH_LABELS[project.health] || 'On Track'} &bull; {STATUS_LABELS[project.status]}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 text-[10px] uppercase font-bold block">Start Date</span>
+                <span className="font-bold text-gray-900">
+                  {project.startDate ? new Date(project.startDate).toLocaleDateString('en-IN') : 'N/A'}
+                </span>
               </div>
               <div>
                 <span className="text-gray-400 text-[10px] uppercase font-bold block">Deadline</span>
@@ -1549,7 +1568,7 @@ function generateMasterReportHTML(projects, stats) {
             <th>Dev Stage</th>
             <th>Assigned Team</th>
             <th>Progress</th>
-            <th>Deadline</th>
+            <th>Schedule</th>
             <th>Budget / Payment</th>
             <th>Current Scene / Status</th>
           </tr>
@@ -1560,6 +1579,7 @@ function generateMasterReportHTML(projects, stats) {
   projects.forEach((p, idx) => {
     const stage = STAGE_MAP[p.devStage] || DEV_STAGES[0]
     const stageName = stage.label.split('. ')[1] || stage.label
+    const startDateStr = p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—'
     const deadlineStr = p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : 'N/A'
     const statusNote = p.currentStatusNote || p.notes || '—'
 
@@ -1579,7 +1599,8 @@ function generateMasterReportHTML(projects, stats) {
         <td style="color: #475569;">${escapePrintHtml(p.assignedTo || 'Unassigned')}</td>
         <td style="font-family: monospace; font-weight: 700; color: #1B6EF3;">${p.progress}%</td>
         <td>
-          <div style="font-weight: 700;">${escapePrintHtml(deadlineStr)}</div>
+          <div style="font-size: 10px; color: #64748b;">Start: ${escapePrintHtml(startDateStr)}</div>
+          <div style="font-weight: 700;">End: ${escapePrintHtml(deadlineStr)}</div>
           ${p.timeRemainingEstimate ? `<div style="font-size: 9px; color: #4338ca; font-weight: 700;">⏱️ ~${escapePrintHtml(p.timeRemainingEstimate)}</div>` : ''}
         </td>
         <td>
@@ -1714,7 +1735,7 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                   <th className="p-2.5">Dev Stage</th>
                   <th className="p-2.5">Assigned Team</th>
                   <th className="p-2.5">Progress</th>
-                  <th className="p-2.5">Deadline</th>
+                  <th className="p-2.5">Schedule</th>
                   <th className="p-2.5">Budget / Payment</th>
                   <th className="p-2.5">Current Scene / Status</th>
                 </tr>
@@ -1742,8 +1763,13 @@ function PrintMasterReportModal({ projects = [], onClose }) {
                       </td>
                       <td className="p-2.5 font-mono font-bold text-brand-blue">{p.progress}%</td>
                       <td className="p-2.5 whitespace-nowrap">
+                        {p.startDate && (
+                          <span className="text-[10px] text-gray-500 block">
+                            Start: {new Date(p.startDate).toLocaleDateString('en-IN')}
+                          </span>
+                        )}
                         <span className="font-bold text-gray-900 block">
-                          {p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : 'N/A'}
+                          End: {p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : 'N/A'}
                         </span>
                         {p.timeRemainingEstimate && (
                           <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-1 rounded block mt-0.5">
