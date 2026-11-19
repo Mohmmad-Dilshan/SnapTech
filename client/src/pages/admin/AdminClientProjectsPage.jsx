@@ -1646,7 +1646,7 @@ export default function AdminClientProjectsPage() {
         description="Comprehensive development projects tracking, team allocation, stage lifecycles, change requests, and executive management reporting."
       />
 
-      <div className={`space-y-6 max-w-7xl mx-auto pb-16 ${printingProject || showMasterReport ? 'print-hidden print:hidden' : ''}`}>
+      <div className={`space-y-6 max-w-7xl mx-auto pb-16 ${printSingleProject || showMasterReport ? 'print-hidden print:hidden' : ''}`}>
         {/* ── Top Header Section ─────────────────────────────────── */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-gray-200 pb-5">
           <div className="flex items-start sm:items-center gap-3">
