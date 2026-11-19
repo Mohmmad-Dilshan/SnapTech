@@ -899,6 +899,387 @@ function ProjectForm({ initial, onSave, onCancel, loading, onAttachmentChange })
   )
 }
 
+function escapePrintHtml(str) {
+  if (str === null || str === undefined) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function printHtmlDocument(title, bodyHtml, isLandscape = false) {
+  const iframe = document.createElement('iframe')
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = '0'
+  iframe.style.visibility = 'hidden'
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentWindow.document
+  doc.open()
+  doc.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapePrintHtml(title)}</title>
+  <style>
+    @page {
+      size: A4 ${isLandscape ? 'landscape' : 'portrait'};
+      margin: 12mm 12mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #1B6EF3;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .brand-title {
+      font-size: 22px;
+      font-weight: 900;
+      color: #1B6EF3;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    .brand-subtitle {
+      font-size: 11px;
+      color: #64748b;
+      margin: 2px 0 0 0;
+    }
+    .badge-report {
+      display: inline-block;
+      padding: 4px 10px;
+      background: #f1f5f9;
+      color: #1e293b;
+      font-weight: 800;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+    }
+    .report-date {
+      font-size: 10px;
+      color: #94a3b8;
+      margin-top: 4px;
+      text-align: right;
+    }
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      background: #ffffff;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .card-title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .proj-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0;
+    }
+    .proj-client {
+      font-size: 12px;
+      color: #475569;
+      margin-top: 2px;
+    }
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      white-space: nowrap;
+    }
+    .grid-5 {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+      margin-top: 8px;
+    }
+    .grid-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: #94a3b8;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .grid-val {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .section-text {
+      font-size: 11.5px;
+      color: #334155;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .bg-blue {
+      background: #f0f7ff;
+      border-color: #bfdbfe;
+    }
+    .bg-amber {
+      background: #fffbeb;
+      border-color: #fde68a;
+    }
+    .bg-gray {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+    }
+    .footer {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: #94a3b8;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      text-transform: uppercase;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #cbd5e1;
+    }
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #1e293b;
+    }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+  ${bodyHtml}
+</body>
+</html>`)
+  doc.close()
+
+  iframe.contentWindow.focus()
+  setTimeout(() => {
+    iframe.contentWindow.print()
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe)
+      }
+    }, 2000)
+  }, 350)
+}
+
+function generateSingleProjectHTML(project) {
+  const stageObj = STAGE_MAP[project.devStage] || DEV_STAGES[0]
+  const typeLabel = formatProjectType(project.projectType)
+  const healthLabel = HEALTH_LABELS[project.health] || 'On Track'
+  const statusLabel = STATUS_LABELS[project.status] || project.status
+  const deadlineStr = project.deadline ? new Date(project.deadline).toLocaleDateString('en-IN') : 'N/A'
+  const reportDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+
+  let html = `
+    <div class="header-bar">
+      <div>
+        <h1 class="brand-title">SnapTech Digital</h1>
+        <p class="brand-subtitle">Software Engineering &bull; Digital Solutions Studio</p>
+      </div>
+      <div>
+        <span class="badge-report">PROJECT STATUS BRIEF</span>
+        <div class="report-date">Report Date: ${escapePrintHtml(reportDate)}</div>
+      </div>
+    </div>
+
+    <!-- Title & Core Summary -->
+    <div class="card bg-gray">
+      <div class="card-title-bar">
+        <div>
+          <h2 class="proj-title">${escapePrintHtml(project.projectTitle)}</h2>
+          <div class="proj-client">
+            Client: <strong>${escapePrintHtml(project.clientName)}</strong>
+            ${project.clientContact ? ` &bull; ${escapePrintHtml(project.clientContact)}` : ''}
+          </div>
+        </div>
+        <div>
+          <span class="pill">${escapePrintHtml(typeLabel)}</span>
+        </div>
+      </div>
+
+      <div class="grid-5">
+        <div>
+          <span class="grid-label">Current Stage</span>
+          <span class="grid-val" style="color: #1B6EF3;">${escapePrintHtml(stageObj.label)}</span>
+        </div>
+        <div>
+          <span class="grid-label">Progress</span>
+          <span class="grid-val" style="color: #059669;">${escapePrintHtml(project.progress)}% Complete</span>
+        </div>
+        <div>
+          <span class="grid-label">Health &amp; Status</span>
+          <span class="grid-val">${escapePrintHtml(healthLabel)} &bull; ${escapePrintHtml(statusLabel)}</span>
+        </div>
+        <div>
+          <span class="grid-label">Deadline</span>
+          <span class="grid-val">${escapePrintHtml(deadlineStr)}</span>
+        </div>
+        <div>
+          <span class="grid-label">Time Remaining</span>
+          <span class="grid-val" style="color: #1B6EF3;">${escapePrintHtml(project.timeRemainingEstimate || 'On Schedule')}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team Assigned -->
+    <div class="card">
+      <div class="section-label" style="color: #64748b;">👥 Assigned Developers &amp; Team</div>
+      <div style="font-weight: 700; font-size: 13px; color: #0f172a;">
+        ${escapePrintHtml(project.assignedTo || 'Unassigned / Core Team')}
+      </div>
+    </div>
+
+    <!-- Current Scene & Status -->
+    <div class="card bg-blue">
+      <div class="section-label" style="color: #1B6EF3;">📍 Current Scene &amp; Latest Status</div>
+      <p class="section-text" style="color: #1e3a8a;">
+        ${escapePrintHtml(project.currentStatusNote || project.notes || 'Project is proceeding as per schedule.')}
+      </p>
+    </div>
+  `
+
+  if (project.initialRequirement) {
+    html += `
+      <div class="card bg-gray">
+        <div class="section-label" style="color: #64748b;">📜 Project Background ("Project Pehle Kya Tha" — Initial Scope)</div>
+        <p class="section-text">${escapePrintHtml(project.initialRequirement)}</p>
+      </div>
+    `
+  }
+
+  html += `
+    <div class="grid-2">
+      <div class="card" style="margin-bottom: 0;">
+        <div class="section-label" style="color: #64748b;">📝 Agreed Deliverables ("Kya Kya Banana Hai")</div>
+        <p class="section-text">${escapePrintHtml(project.scopeFeatures || project.description || 'Deliverables as per work agreement.')}</p>
+      </div>
+
+      <div class="card bg-amber" style="margin-bottom: 0;">
+        <div class="section-label" style="color: #92400e;">⚠️ Client Additions ("New Kya Add Karwaya")</div>
+        <p class="section-text" style="color: #78350f;">${escapePrintHtml(project.changeRequests || 'No additional change requests recorded.')}</p>
+        ${project.extraTimeRequired ? `
+          <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #fde68a; display: flex; justify-content: space-between; font-size: 11px;">
+            <span style="font-weight: 700; color: #78350f;">Extra Time Added:</span>
+            <span style="font-weight: 800; color: #be123c; background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecdd3;">⏱️ ${escapePrintHtml(project.extraTimeRequired)}</span>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+
+    <!-- Financials & Payment -->
+    <div class="card bg-gray">
+      <div class="section-label" style="color: #64748b; margin-bottom: 8px;">💰 Financials &amp; Payment Status</div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+        <div>
+          <span class="grid-label">Total Budget</span>
+          <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${escapePrintHtml(project.budget || '₹ Custom')}</span>
+        </div>
+        <div>
+          <span class="grid-label">Received</span>
+          <span style="font-size: 14px; font-weight: 800; color: #059669;">${escapePrintHtml(project.paymentReceived || '—')}</span>
+        </div>
+        <div>
+          <span class="grid-label">Pending</span>
+          <span style="font-size: 14px; font-weight: 800; color: #d97706;">${escapePrintHtml(project.paymentPending || '—')}</span>
+        </div>
+      </div>
+      ${project.paymentNotes ? `
+        <div style="font-size: 11px; color: #64748b; margin-top: 8px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
+          Notes: ${escapePrintHtml(project.paymentNotes)}
+        </div>
+      ` : ''}
+    </div>
+  `
+
+  if (project.liveUrl || project.stagingUrl || project.repoUrl) {
+    html += `
+      <div class="card bg-gray" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <span style="font-weight: 700; color: #64748b;">Links:</span>
+        ${project.liveUrl ? `<span style="font-family: monospace; font-size: 11px; color: #1B6EF3;">Live: ${escapePrintHtml(project.liveUrl)}</span>` : ''}
+        ${project.stagingUrl ? `<span style="font-family: monospace; font-size: 11px; color: #b45309;">Demo: ${escapePrintHtml(project.stagingUrl)}</span>` : ''}
+        ${project.repoUrl ? `<span style="font-family: monospace; font-size: 11px; color: #7e22ce;">Repo: ${escapePrintHtml(project.repoUrl)}</span>` : ''}
+      </div>
+    `
+  }
+
+  html += `
+    <div class="footer">
+      <div>SnapTech Digital &bull; Confidential Management Documentation</div>
+      <div>Printed by Project Lead / Management</div>
+    </div>
+  `
+
+  return html
+}
+
 // ── Single Project Printable Sheet Modal ─────────────────────────
 function PrintSingleProjectModal({ project, onClose }) {
   if (!project) return null
@@ -907,67 +1288,15 @@ function PrintSingleProjectModal({ project, onClose }) {
   const typeLabel = formatProjectType(project.projectType)
 
   const handlePrint = () => {
-    window.print()
+    const html = generateSingleProjectHTML(project)
+    printHtmlDocument(`SnapTech - ${project.projectTitle}`, html, false)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print-modal-overlay">
-      <style>{`
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 10mm 12mm;
-          }
-          html, body, #root, #root div, main {
-            background: #ffffff !important;
-            color: #000000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: visible !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-          }
-          aside, header, nav, [role="navigation"], .print-hidden {
-            display: none !important;
-          }
-          .print-modal-overlay {
-            position: static !important;
-            inset: auto !important;
-            background: transparent !important;
-            backdrop-filter: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            overflow: visible !important;
-          }
-          .print-modal-sheet {
-            position: static !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            overflow: visible !important;
-            box-shadow: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          .print-avoid-break {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
-        }
-      `}</style>
-      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print-modal-sheet">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+      <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200">
         {/* Print Controls Header (Hidden during actual print) */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden print-hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
           <div className="flex items-center gap-2">
             <span className="p-2 bg-brand-blue/10 text-brand-blue rounded-xl">
               <Printer className="w-5 h-5" />
@@ -994,10 +1323,10 @@ function PrintSingleProjectModal({ project, onClose }) {
           </div>
         </div>
 
-        {/* Printable Document Body */}
-        <div className="space-y-5 text-gray-900 font-sans print:space-y-3.5">
+        {/* Document Preview on Screen */}
+        <div className="space-y-5 text-gray-900 font-sans">
           {/* Header */}
-          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-3.5 print-avoid-break">
+          <div className="flex items-start justify-between border-b-2 border-brand-blue pb-3.5">
             <div>
               <h1 className="text-2xl font-black text-brand-blue tracking-tight">SnapTech Digital</h1>
               <p className="text-xs text-gray-500 mt-0.5">Software Engineering &bull; Digital Solutions Studio</p>
@@ -1013,7 +1342,7 @@ function PrintSingleProjectModal({ project, onClose }) {
           </div>
 
           {/* Title & Core Grid */}
-          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 print-avoid-break">
+          <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-black text-gray-900">{project.projectTitle}</h2>
@@ -1171,6 +1500,114 @@ function PrintSingleProjectModal({ project, onClose }) {
   )
 }
 
+function generateMasterReportHTML(projects, stats) {
+  const generatedDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  let html = `
+    <div class="header-bar">
+      <div>
+        <h1 class="brand-title">SnapTech Digital</h1>
+        <p class="brand-subtitle">Software Development &bull; Engineering Status Report</p>
+      </div>
+      <div>
+        <span class="badge-report">EXECUTIVE MANAGEMENT REPORT</span>
+        <div class="report-date">Generated: ${escapePrintHtml(generatedDate)}</div>
+      </div>
+    </div>
+
+    <!-- KPI Summary -->
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px;">
+      <div class="card bg-gray" style="text-align: center; margin-bottom: 0;">
+        <span class="grid-label">Total Projects</span>
+        <span style="font-size: 18px; font-weight: 900; color: #0f172a;">${stats.total}</span>
+      </div>
+      <div class="card bg-blue" style="text-align: center; margin-bottom: 0;">
+        <span class="grid-label" style="color: #1B6EF3;">In Development</span>
+        <span style="font-size: 18px; font-weight: 900; color: #1B6EF3;">${stats.active}</span>
+      </div>
+      <div class="card bg-amber" style="text-align: center; margin-bottom: 0;">
+        <span class="grid-label" style="color: #d97706;">In Review / QA</span>
+        <span style="font-size: 18px; font-weight: 900; color: #d97706;">${stats.review}</span>
+      </div>
+      <div class="card" style="text-align: center; margin-bottom: 0; background: #ecfdf5; border-color: #a7f3d0;">
+        <span class="grid-label" style="color: #059669;">Completed</span>
+        <span style="font-size: 18px; font-weight: 900; color: #059669;">${stats.completed}</span>
+      </div>
+      <div class="card" style="text-align: center; margin-bottom: 0; background: #fff1f2; border-color: #fecdd3;">
+        <span class="grid-label" style="color: #e11d48;">Overdue SLA</span>
+        <span style="font-size: 18px; font-weight: 900; color: #e11d48;">${stats.overdue}</span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 12px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 32px;">#</th>
+            <th>Project Title</th>
+            <th>Client</th>
+            <th>Dev Stage</th>
+            <th>Assigned Team</th>
+            <th>Progress</th>
+            <th>Deadline</th>
+            <th>Budget / Payment</th>
+            <th>Current Scene / Status</th>
+          </tr>
+        </thead>
+        <tbody>
+  `
+
+  projects.forEach((p, idx) => {
+    const stage = STAGE_MAP[p.devStage] || DEV_STAGES[0]
+    const stageName = stage.label.split('. ')[1] || stage.label
+    const deadlineStr = p.deadline ? new Date(p.deadline).toLocaleDateString('en-IN') : 'N/A'
+    const statusNote = p.currentStatusNote || p.notes || '—'
+
+    html += `
+      <tr>
+        <td style="color: #94a3b8; font-weight: 700;">${idx + 1}</td>
+        <td>
+          <strong style="color: #0f172a;">${escapePrintHtml(p.projectTitle)}</strong>
+          <div style="font-size: 10px; color: #64748b;">${escapePrintHtml(formatProjectType(p.projectType))}</div>
+        </td>
+        <td>${escapePrintHtml(p.clientName)}</td>
+        <td>
+          <span style="background: #eff6ff; color: #1B6EF3; border: 1px solid #bfdbfe; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 10px;">
+            ${escapePrintHtml(stageName)}
+          </span>
+        </td>
+        <td style="color: #475569;">${escapePrintHtml(p.assignedTo || 'Unassigned')}</td>
+        <td style="font-family: monospace; font-weight: 700; color: #1B6EF3;">${p.progress}%</td>
+        <td>
+          <div style="font-weight: 700;">${escapePrintHtml(deadlineStr)}</div>
+          ${p.timeRemainingEstimate ? `<div style="font-size: 9px; color: #4338ca; font-weight: 700;">⏱️ ~${escapePrintHtml(p.timeRemainingEstimate)}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-weight: 700;">${escapePrintHtml(p.budget || '—')}</div>
+          <div style="font-size: 10px; color: #64748b;">${escapePrintHtml(p.paymentReceived ? `Rec: ${p.paymentReceived}` : formatPaymentStatus(p.paymentStatus))}</div>
+        </td>
+        <td style="max-width: 220px;">
+          <div style="font-size: 11px; color: #334155;">${escapePrintHtml(statusNote)}</div>
+          ${p.changeRequests ? `<div style="font-size: 10px; color: #b45309; font-weight: 700; margin-top: 2px;">+Scope: ${escapePrintHtml(p.changeRequests)}</div>` : ''}
+        </td>
+      </tr>
+    `
+  })
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      <div>SnapTech Digital &bull; Confidential Executive Document</div>
+      <div>Report Compiled for Management &amp; Boss Review</div>
+    </div>
+  `
+
+  return html
+}
+
 // ── Master Portfolio Printable Report Modal (Print All Projects) ─
 function PrintMasterReportModal({ projects = [], onClose }) {
   if (!projects) return null
@@ -1187,67 +1624,15 @@ function PrintMasterReportModal({ projects = [], onClose }) {
   }
 
   const handlePrint = () => {
-    window.print()
+    const html = generateMasterReportHTML(projects, stats)
+    printHtmlDocument('SnapTech Digital - Master Development Report', html, true)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn print-modal-overlay">
-      <style>{`
-        @media print {
-          @page {
-            size: A4 landscape;
-            margin: 10mm 10mm;
-          }
-          html, body, #root, #root div, main {
-            background: #ffffff !important;
-            color: #000000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: visible !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-          }
-          aside, header, nav, [role="navigation"], .print-hidden {
-            display: none !important;
-          }
-          .print-modal-overlay {
-            position: static !important;
-            inset: auto !important;
-            background: transparent !important;
-            backdrop-filter: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            overflow: visible !important;
-          }
-          .print-modal-sheet {
-            position: static !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            overflow: visible !important;
-            box-shadow: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          .print-avoid-break {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
-        }
-      `}</style>
-      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200 print-modal-sheet">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+      <div className="bg-white rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto border border-gray-200">
         {/* Controls Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4 print:hidden print-hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
           <div className="flex items-center gap-2">
             <span className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
               <Printer className="w-5 h-5" />
@@ -1646,7 +2031,7 @@ export default function AdminClientProjectsPage() {
         description="Comprehensive development projects tracking, team allocation, stage lifecycles, change requests, and executive management reporting."
       />
 
-      <div className={`space-y-6 max-w-7xl mx-auto pb-16 ${printSingleProject || showMasterReport ? 'print-hidden print:hidden' : ''}`}>
+      <div className="space-y-6 max-w-7xl mx-auto pb-16">
         {/* ── Top Header Section ─────────────────────────────────── */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-gray-200 pb-5">
           <div className="flex items-start sm:items-center gap-3">
